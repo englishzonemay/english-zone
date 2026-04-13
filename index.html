@@ -684,11 +684,9 @@ body {
 <!-- MOBILE MENU -->
 <div class="mobile-menu" id="mobile-menu">
   <div class="mm-label">메뉴</div>
-  <div class="mm-item active" onclick="mobileNav('overview')">전체 현황</div>
+  <div class="mm-item active" onclick="mobileNav('overview')">현황 & 브리핑</div>
   <div class="mm-item" onclick="mobileNav('students')">학생 카드</div>
-  <div class="mm-item" onclick="mobileNav('homework')">숙제 체크</div>
-  <div class="mm-item" onclick="mobileNav('experiments')">관찰 & 실험</div>
-  <div class="mm-item" onclick="mobileNav('briefing')">브리핑 준비</div>
+  <div class="mm-item" onclick="mobileNav('homework')">숙제 검사</div>
   <div class="mm-item" onclick="mobileNav('ainotes')">AI 노트</div>
   <div class="mm-label">반 선택</div>
   <div id="mobile-class-list"></div>
@@ -700,19 +698,13 @@ body {
     <div class="sidebar-section">
       <div class="sidebar-label">메뉴</div>
       <div class="sidebar-item active" onclick="setMenu('overview',this)">
-        <div class="dot"></div> 전체 현황
+        <div class="dot"></div> 현황 & 브리핑
       </div>
       <div class="sidebar-item" onclick="setMenu('students',this)">
         <div class="dot"></div> 학생 카드
       </div>
       <div class="sidebar-item" onclick="setMenu('homework',this)">
-        <div class="dot"></div> 숙제 체크
-      </div>
-      <div class="sidebar-item" onclick="setMenu('experiments',this)">
-        <div class="dot"></div> 관찰 & 실험
-      </div>
-      <div class="sidebar-item" onclick="setMenu('briefing',this)">
-        <div class="dot"></div> 브리핑 준비
+        <div class="dot"></div> 숙제 검사
       </div>
       <div class="sidebar-item" onclick="setMenu('ainotes',this)">
         <div class="dot"></div> AI 노트
@@ -729,20 +721,42 @@ body {
   <!-- MAIN -->
   <main class="main">
 
-    <!-- OVERVIEW -->
+    <!-- OVERVIEW & BRIEFING (통합) -->
     <div id="page-overview">
       <div class="page-header">
         <div>
-          <div class="page-title">전체 현황</div>
+          <div class="page-title">현황 & 브리핑</div>
           <div class="page-subtitle" id="overview-subtitle">모든 반의 학생 현황</div>
         </div>
       </div>
       <div id="overview-checklist" style="margin-bottom:16px"></div>
       <div class="grid4" style="margin-bottom:20px" id="overview-metrics"></div>
-      <div class="card">
+      <div class="card" style="margin-bottom:12px">
         <div style="font-size:11px;font-weight:600;margin-bottom:14px;color:var(--text2);letter-spacing:0.5px;text-transform:uppercase">반별 학생 현황</div>
         <div id="overview-classes"></div>
       </div>
+      <div class="divider" style="margin:20px 0"></div>
+      <!-- 브리핑 섹션 -->
+      <div class="grid3" style="margin-bottom:16px" id="briefing-metrics"></div>
+      <div class="card" style="margin-bottom:12px">
+        <div style="font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;color:var(--text3);margin-bottom:12px">실험 효과 요약</div>
+        <div id="briefing-exp-summary"></div>
+      </div>
+      <div class="card" style="margin-bottom:12px">
+        <div style="font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;color:var(--text3);margin-bottom:12px">숙제 퀄리티 추이</div>
+        <div id="briefing-hw-trend"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button class="btn btn-primary" style="flex:1" onclick="generateReport('week')">📋 이번 주 요약</button>
+        <button class="btn btn-primary" style="flex:1" onclick="generateReport('month')">📊 이번 달 요약</button>
+      </div>
+      <div id="report-result" style="margin-bottom:12px"></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn" style="flex:1;border-color:var(--accent);color:var(--accent)" onclick="generateBriefingScript()">✨ 브리핑 스크립트 자동 생성</button>
+        <button class="btn btn-sm" onclick="loadPreviousBriefings()" style="flex-shrink:0">이전 브리핑 불러오기</button>
+      </div>
+      <div id="briefing-script-result" style="margin-top:12px"></div>
+      <div id="briefing-prev-list" style="margin-top:12px"></div>
     </div>
 
     <!-- STUDENTS -->
@@ -783,53 +797,7 @@ body {
       </div>
     </div>
 
-    <!-- EXPERIMENTS -->
-    <div id="page-experiments" style="display:none">
-      <div class="page-header">
-        <div>
-          <div class="page-title">관찰 & 실험</div>
-          <div class="page-subtitle" id="experiments-subtitle"></div>
-        </div>
-        <button class="btn btn-primary" onclick="openAddExp()">+ 기록 추가</button>
-      </div>
-      <div class="date-filter" id="exp-date-filter">
-        <button class="df-btn active" onclick="setDateFilter('exp','all',this)">전체</button>
-        <button class="df-btn" onclick="setDateFilter('exp','today',this)">오늘</button>
-        <button class="df-btn" onclick="setDateFilter('exp','week',this)">이번 주</button>
-        <button class="df-btn" onclick="setDateFilter('exp','month',this)">이번 달</button>
-      </div>
-      <div id="exp-content"></div>
-    </div>
-
-    <!-- BRIEFING -->
-    <div id="page-briefing" style="display:none">
-      <div class="page-header">
-        <div>
-          <div class="page-title">브리핑 준비</div>
-          <div class="page-subtitle">5월 4일 보고 자료</div>
-        </div>
-      </div>
-      <div class="grid3" style="margin-bottom:16px" id="briefing-metrics"></div>
-      <div class="card" style="margin-bottom:12px">
-        <div style="font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;color:var(--text3);margin-bottom:12px">실험 효과 요약</div>
-        <div id="briefing-exp-summary"></div>
-      </div>
-      <div class="card" style="margin-bottom:12px">
-        <div style="font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;color:var(--text3);margin-bottom:12px">숙제 퀄리티 추이</div>
-        <div id="briefing-hw-trend"></div>
-      </div>
-      <div style="display:flex;gap:8px;margin-bottom:12px">
-        <button class="btn btn-primary" style="flex:1" onclick="generateReport('week')">📋 이번 주 요약</button>
-        <button class="btn btn-primary" style="flex:1" onclick="generateReport('month')">📊 이번 달 요약</button>
-      </div>
-      <div id="report-result" style="margin-bottom:12px"></div>
-      <div style="display:flex;gap:8px">
-        <button class="btn" style="flex:1;border-color:var(--accent);color:var(--accent)" onclick="generateBriefingScript()">✨ 브리핑 스크립트 자동 생성</button>
-        <button class="btn btn-sm" onclick="loadPreviousBriefings()" style="flex-shrink:0">이전 브리핑 불러오기</button>
-      </div>
-      <div id="briefing-script-result" style="margin-top:12px"></div>
-      <div id="briefing-prev-list" style="margin-top:12px"></div>
-    </div>
+    <!-- (experiments and briefing pages removed - merged into overview) -->
 
     <!-- AI NOTES -->
     <div id="page-ainotes" style="display:none">
@@ -1312,16 +1280,16 @@ function setMenu(menu, el) {
 
 // ===== PAGE RENDER =====
 function renderPage() {
-  ['overview','students','homework','experiments','briefing','ainotes'].forEach(p => {
+  ['overview','students','homework','ainotes'].forEach(p => {
     document.getElementById('page-'+p).style.display = 'none';
   });
+  // 이전 메뉴 호환: experiments/briefing → overview로 리다이렉트
+  if (currentMenu === 'experiments' || currentMenu === 'briefing') currentMenu = 'overview';
   document.getElementById('page-'+currentMenu).style.display = 'block';
 
-  if (currentMenu === 'overview') renderOverview();
+  if (currentMenu === 'overview') { renderOverview(); renderBriefing(); }
   else if (currentMenu === 'students') renderStudents();
   else if (currentMenu === 'homework') renderHomework();
-  else if (currentMenu === 'experiments') renderExperiments();
-  else if (currentMenu === 'briefing') renderBriefing();
   else if (currentMenu === 'ainotes') renderAINotes();
 }
 
