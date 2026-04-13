@@ -677,6 +677,7 @@ body {
     </div>
     <span id="header-class-name" style="font-size:12px;opacity:0.7"></span>
     <button class="btn btn-sm" style="background:rgba(255,255,255,0.15);border-color:rgba(255,255,255,0.3);color:white" onclick="openModal('modal-counseling')">📋 상담일지</button>
+    <button class="btn btn-sm" style="background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.2);color:white;font-size:11px" onclick="openModal('modal-api-key')">⚙️</button>
   </div>
 </header>
 
@@ -1025,6 +1026,24 @@ body {
   <div class="modal-footer">
     <button class="btn" onclick="closeModal('modal-add-exp')">취소</button>
     <button class="btn btn-primary" onclick="saveExp()">저장</button>
+  </div>
+</div>
+</div>
+
+<!-- API 키 설정 -->
+<div class="modal-overlay" id="modal-api-key">
+<div class="modal" style="max-width:420px">
+  <div class="modal-header">
+    <div class="modal-title">⚙️ API 설정</div>
+    <button class="modal-close" onclick="closeModal('modal-api-key')">×</button>
+  </div>
+  <p style="font-size:12px;color:var(--text2);margin-bottom:12px">AI 분석 기능을 사용하려면 API 키가 필요합니다. 키가 없어도 로컬 분석은 동작합니다.</p>
+  <div class="field"><label>Anthropic API Key</label><input id="api-key-input" type="password" placeholder="sk-ant-..." /></div>
+  <div class="field"><label>CORS 프록시 URL (선택)</label><input id="api-proxy-input" placeholder="예: https://your-proxy.com" /></div>
+  <p style="font-size:11px;color:var(--text3);margin-bottom:12px">프록시 없이 직접 호출 시 브라우저 CORS 제한이 있을 수 있습니다. Netlify Functions나 Cloudflare Workers로 프록시를 구성하면 해결됩니다.</p>
+  <div class="modal-footer">
+    <button class="btn" onclick="closeModal('modal-api-key')">닫기</button>
+    <button class="btn btn-primary" onclick="saveApiKey()">저장</button>
   </div>
 </div>
 </div>
@@ -1914,44 +1933,113 @@ function renderBriefing() {
   document.getElementById('briefing-hw-trend').innerHTML = trendHtml || '<p style="font-size:13px;color:var(--text3)">기록 없음</p>';
 }
 
+// ===== API HELPER =====
+function getApiConfig() {
+  return {
+    key: localStorage.getItem('ez-api-key') || '',
+    proxy: localStorage.getItem('ez-api-proxy') || ''
+  };
+}
+function saveApiKey() {
+  localStorage.setItem('ez-api-key', document.getElementById('api-key-input').value.trim());
+  localStorage.setItem('ez-api-proxy', document.getElementById('api-proxy-input').value.trim());
+  closeModal('modal-api-key');
+}
+
+async function callAI(prompt, maxTokens) {
+  const cfg = getApiConfig();
+  if (!cfg.key) return null;
+  const url = cfg.proxy ? cfg.proxy + '/v1/messages' : 'https://api.anthropic.com/v1/messages';
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': cfg.key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: maxTokens || 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await res.json();
+    return data.content?.map(c=>c.text||'').join('') || null;
+  } catch(e) { return null; }
+}
+
 async function generateBriefingScript() {
   const students = getFilteredStudents();
   const exp = getFilteredExp();
   const hw = getFilteredHW();
   const good = exp.filter(e=>e.effect==='good');
+  const bad = exp.filter(e=>e.effect==='bad');
 
   const el = document.getElementById('briefing-script-result');
   el.innerHTML = '<div class="loading"><div class="spinner"></div> 브리핑 스크립트 생성 중...</div>';
 
-  const summary = `
-담당 학생: ${students.map(s=>s.name).join(', ')}
-숙제 기록 수: ${hw.length}건
-효과있는 실험: ${good.map(e=>`${e.student}(${e.method}→${e.result})`).join('; ')}
-학생별 주의사항: ${students.map(s=>s.name+(s.note?': '+s.note:'')).join(' / ')}
-  `;
+  const prompt = `당신은 영어 학원 LT(리딩&테스트) 강사입니다. 상사에게 아이들 지도 현황을 브리핑해야 합니다.
+원인분석 → 시도한 방법 → 결과 → 앞으로의 계획 순서로 자연스럽고 구체적인 한국어 브리핑 스크립트를 작성해주세요.
 
-  try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        messages: [{
-          role: 'user',
-          content: `당신은 영어 학원 LT(리딩&테스트) 강사입니다. 상사에게 아이들 지도 현황을 브리핑해야 합니다. 아래 데이터를 바탕으로 자연스럽고 구체적인 한국어 브리핑 스크립트를 작성해주세요. 원인분석 → 시도한 방법 → 결과 → 앞으로의 계획 순서로 작성해주세요.
+담당 학생: ${students.map(s=>`${s.name}(${s.grade})`).join(', ')}
+숙제 기록 ${hw.length}건, 평균 퀄리티 ★${hw.length?(hw.reduce((a,b)=>a+b.stars,0)/hw.length).toFixed(1):'없음'}
+효과있는 실험: ${good.map(e=>`${e.student}(${e.method}→${e.result})`).join('; ')||'없음'}
+학생별 주의사항: ${students.map(s=>s.name+(s.note?': '+s.note:'')).join(' / ')}`;
 
-데이터:
-${summary}`
-        }]
-      })
-    });
-    const data = await res.json();
-    const text = data.content?.map(c=>c.text||'').join('') || '생성 실패';
-    el.innerHTML = `<div class="ai-result">${text}</div>`;
-  } catch(e) {
-    el.innerHTML = `<div class="ai-result" style="background:var(--accent2-light)">API 연결 오류. 직접 입력해서 사용해주세요.</div>`;
+  const aiText = await callAI(prompt, 1500);
+  if (aiText) {
+    el.innerHTML = `<div class="ai-result" style="white-space:pre-wrap;font-size:13px;line-height:1.8">${aiText}</div>`;
+    return;
   }
+
+  // 로컬 브리핑 생성
+  const avgStars = hw.length ? (hw.reduce((a,b)=>a+b.stars,0)/hw.length).toFixed(1) : '—';
+  const totalWrongs = hw.reduce((a,h)=>a+(h.wrongs?h.wrongs.length:0),0);
+  let script = `<div class="ai-result" style="font-size:13px;line-height:1.8">`;
+  script += `<b>브리핑 스크립트</b><br><br>`;
+  script += `현재 ${students.length}명의 학생을 담당하고 있습니다.<br><br>`;
+
+  // 원인 분석
+  script += `<b style="color:var(--accent)">■ 현황 분석</b><br>`;
+  script += `숙제 기록 총 ${hw.length}건, 평균 퀄리티 ★${avgStars}입니다.`;
+  if (totalWrongs) script += ` 온라인 오답 총 ${totalWrongs}건이 발생했습니다.`;
+  const lowStudents = students.filter(s=>{ const r=db.homework.filter(h=>h.student===s.name); return r.length&&r[r.length-1].stars<=2; });
+  if (lowStudents.length) script += `<br>퀄리티 주의 학생: <b style="color:var(--accent2)">${lowStudents.map(s=>s.name).join(', ')}</b>`;
+  script += `<br><br>`;
+
+  // 시도한 방법
+  script += `<b style="color:var(--accent)">■ 시도한 방법</b><br>`;
+  if (good.length) {
+    good.slice(-3).forEach(e => { script += `· ${e.student}: ${e.method} → <b style="color:var(--accent)">효과있음</b> (${e.result})<br>`; });
+  } else { script += `아직 효과있는 실험 기록이 없습니다.<br>`; }
+  if (bad.length) {
+    script += `효과없었던 시도: `;
+    bad.slice(-2).forEach(e => { script += `${e.student}(${e.method.slice(0,20)}) `; });
+    script += `<br>`;
+  }
+  script += `<br>`;
+
+  // 결과
+  script += `<b style="color:var(--accent)">■ 결과</b><br>`;
+  students.forEach(s => {
+    const sHW = hw.filter(h=>h.student===s.name);
+    if (!sHW.length) return;
+    const avg = (sHW.reduce((a,b)=>a+b.stars,0)/sHW.length).toFixed(1);
+    const trend = sHW.length>=2 ? (sHW[sHW.length-1].stars > sHW[sHW.length-2].stars ? '↑ 상승' : sHW[sHW.length-1].stars < sHW[sHW.length-2].stars ? '↓ 하락' : '→ 유지') : '';
+    script += `· ${s.name}: ★${avg} ${trend}<br>`;
+  });
+  script += `<br>`;
+
+  // 앞으로의 계획
+  script += `<b style="color:var(--accent)">■ 앞으로의 계획</b><br>`;
+  if (lowStudents.length) script += `· ${lowStudents.map(s=>s.name).join(', ')} 집중 관리 (숙제 양 조절, 개별 면담)<br>`;
+  if (good.length) script += `· 효과있었던 방법 지속 적용: ${good[good.length-1].method.slice(0,30)}<br>`;
+  script += `· 전체 학생 오답 패턴 분석 후 개별 보강 계획 수립<br>`;
+  script += `</div>`;
+
+  el.innerHTML = script;
 }
 
 // ===== COUNSELING ANALYSIS =====
@@ -1963,17 +2051,7 @@ async function analyzeCounseling() {
   const el = document.getElementById('counsel-result');
   el.innerHTML = '<div class="loading" style="margin-top:12px"><div class="spinner"></div> 분석 중...</div>';
 
-  try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        messages: [{
-          role: 'user',
-          content: `당신은 영어 학원 코칭 전문가입니다. 아래 상담 일지를 읽고 다음 항목을 한국어로 정리해주세요:
-
+  const prompt = `당신은 영어 학원 코칭 전문가입니다. 아래 상담 일지를 읽고 다음 항목을 한국어로 정리해주세요:
 1. 학생 성향 요약 (3줄 이내)
 2. 학습 패턴 및 문제점
 3. 코칭할 때 주의사항
@@ -1982,16 +2060,40 @@ async function analyzeCounseling() {
 
 학생명: ${name || '미기재'}
 상담 내용:
-${text}`
-        }]
-      })
-    });
-    const data = await res.json();
-    const result = data.content?.map(c=>c.text||'').join('') || '분석 실패';
-    el.innerHTML = `<div class="ai-result" style="margin-top:12px">${result}</div>`;
-  } catch(e) {
-    el.innerHTML = `<div class="ai-result" style="margin-top:12px;background:var(--accent2-light)">API 오류가 발생했습니다.</div>`;
+${text}`;
+
+  const aiText = await callAI(prompt, 1000);
+  if (aiText) {
+    el.innerHTML = `<div class="ai-result" style="margin-top:12px;white-space:pre-wrap">${aiText}</div>`;
+    return;
   }
+
+  // 로컬 분석
+  const keywords = {
+    positive: ['좋아','잘','열심','노력','성장','개선'],
+    negative: ['안해','싫어','거부','포기','울','힘들'],
+    social: ['친구','엄마','아빠','동생','형','누나'],
+    academic: ['숙제','시험','영어','단어','문법','읽기']
+  };
+  const detected = {};
+  Object.entries(keywords).forEach(([cat, words]) => {
+    const found = words.filter(w => text.includes(w));
+    if (found.length) detected[cat] = found;
+  });
+
+  let result = `<div class="ai-result" style="margin-top:12px;font-size:12px;line-height:1.8">`;
+  result += `<b>📋 상담 분석 — ${name||'미기재'}</b><br><br>`;
+  result += `<b style="color:var(--accent)">1. 성향 요약</b><br>`;
+  if (detected.positive) result += `긍정적 신호 감지: ${detected.positive.join(', ')}<br>`;
+  if (detected.negative) result += `주의 필요 신호: ${detected.negative.join(', ')}<br>`;
+  if (!detected.positive && !detected.negative) result += `상담 내용에서 뚜렷한 성향 키워드가 감지되지 않았습니다.<br>`;
+  result += `<br><b style="color:var(--accent)">2. 코칭 포인트</b><br>`;
+  if (detected.negative) result += `· 부정적 감정이 있으므로 압박보다 격려 우선<br>`;
+  if (detected.social) result += `· 가족/친구 이야기(${detected.social.join(', ')})를 스몰톡 소재로 활용<br>`;
+  if (detected.academic) result += `· 학업 관련 키워드(${detected.academic.join(', ')}) — 구체적 학습 계획 필요<br>`;
+  result += `· 다음 상담에서 변화 관찰 포인트 설정하기<br>`;
+  result += `</div>`;
+  el.innerHTML = result;
 }
 
 // ===== HELPERS =====
@@ -2011,7 +2113,13 @@ function getFilteredExp() {
 }
 
 // ===== MODALS =====
-function openModal(id) { document.getElementById(id).classList.add('open'); }
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+  if (id==='modal-api-key') {
+    document.getElementById('api-key-input').value = localStorage.getItem('ez-api-key')||'';
+    document.getElementById('api-proxy-input').value = localStorage.getItem('ez-api-proxy')||'';
+  }
+}
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
 function toggleStudentEdit(id) {
@@ -3178,20 +3286,12 @@ ${context}
 - 말투/태도 예시
 간결하게 핵심만 답해주세요.`;
 
-  try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 800, messages: [{ role: 'user', content: prompt }] })
-    });
-    const data = await res.json();
-    const text = data.content?.map(c=>c.text||'').join('') || '';
-    if (text) {
-      el.innerHTML = renderAIAnalysisHTML(text);
-      input.value = '';
-      return;
-    }
-  } catch(e) {}
+  const aiText = await callAI(prompt, 800);
+  if (aiText) {
+    el.innerHTML = renderAIAnalysisHTML(aiText);
+    input.value = '';
+    return;
+  }
 
   // 로컬 응답
   let advice = `<div style="padding:10px 12px;background:var(--accent-light);border-radius:var(--radius-sm);border-left:3px solid var(--accent);font-size:12px;line-height:1.7">`;
