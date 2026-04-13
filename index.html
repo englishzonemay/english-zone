@@ -609,11 +609,56 @@ body {
 .mobile-menu .mm-item:hover { background: var(--surface2); color: var(--text); }
 .mobile-menu .mm-item.active { background: var(--accent-light); color: var(--accent); font-weight: 500; }
 
+/* SEARCH BAR */
+.search-wrap {
+  position:relative; margin-bottom:16px;
+}
+.search-wrap input {
+  width:100%; padding:10px 14px 10px 36px; border:1px solid var(--border);
+  border-radius:var(--radius); font-size:13px; background:var(--surface);
+}
+.search-wrap input:focus { border-color:var(--accent); outline:none; box-shadow:0 0 0 3px rgba(45,90,61,0.1); }
+.search-wrap::before {
+  content:'🔍'; position:absolute; left:12px; top:50%; transform:translateY(-50%); font-size:14px;
+}
+/* DATE FILTER */
+.date-filter { display:flex; gap:4px; margin-bottom:12px; flex-wrap:wrap; }
+.date-filter .df-btn {
+  padding:5px 12px; border-radius:20px; font-size:11px; font-weight:600;
+  border:1px solid var(--border); background:var(--surface); color:var(--text2);
+  cursor:pointer; transition:all 0.15s;
+}
+.date-filter .df-btn:hover { border-color:var(--accent); color:var(--accent); }
+.date-filter .df-btn.active { background:var(--accent); color:white; border-color:var(--accent); }
+/* CHECKLIST */
+.checklist-card {
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+  padding:14px; margin-bottom:12px;
+}
+.checklist-item {
+  display:flex; align-items:center; gap:10px; padding:6px 0;
+  border-bottom:1px solid var(--surface2); font-size:12px;
+}
+.checklist-item:last-child { border-bottom:none; }
+.cl-icon { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
+
 @media (max-width: 700px) {
   .sidebar { display: none !important; }
   .hamburger { display: block; }
   .grid3 { grid-template-columns: 1fr 1fr; }
   .grid4 { grid-template-columns: 1fr 1fr; }
+  .main { padding: 14px; }
+  .page-title { font-size: 18px; }
+  .hw-table { font-size: 11px; }
+  .hw-table th, .hw-table td { padding: 6px 4px; }
+  .student-card { padding: 10px; }
+  .btn { padding: 7px 14px; font-size: 12px; }
+  .btn-sm { padding: 6px 10px; }
+  .modal { margin: 10px; max-height: 90vh; overflow-y: auto; }
+  .field-row { grid-template-columns: 1fr; }
+  .coach-input-wrap { flex-direction: column; }
+  .coach-input-wrap button { width: 100%; }
+  .page-header { flex-direction: column; gap: 8px; align-items: flex-start; }
 }
 </style>
 </head>
@@ -625,8 +670,13 @@ body {
     <div class="header-logo" onclick="goHome()" style="cursor:pointer">English Zone <span>코칭 트래커</span></div>
   </div>
   <div style="display:flex;gap:8px;align-items:center">
+    <div style="position:relative">
+      <input id="global-search" placeholder="학생 검색" oninput="onGlobalSearch(this.value)" style="padding:5px 10px 5px 28px;border:1px solid rgba(255,255,255,0.3);border-radius:20px;background:rgba(255,255,255,0.15);color:white;font-size:12px;width:140px;outline:none" />
+      <span style="position:absolute;left:9px;top:50%;transform:translateY(-50%);font-size:11px;opacity:0.6">🔍</span>
+      <div id="search-results" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:var(--shadow-md);min-width:200px;max-height:240px;overflow-y:auto;z-index:200"></div>
+    </div>
     <span id="header-class-name" style="font-size:12px;opacity:0.7"></span>
-    <button class="btn btn-sm" style="background:rgba(255,255,255,0.15);border-color:rgba(255,255,255,0.3);color:white" onclick="openModal('modal-counseling')">📋 상담일지 분석</button>
+    <button class="btn btn-sm" style="background:rgba(255,255,255,0.15);border-color:rgba(255,255,255,0.3);color:white" onclick="openModal('modal-counseling')">📋 상담일지</button>
   </div>
 </header>
 
@@ -682,9 +732,10 @@ body {
           <div class="page-subtitle" id="overview-subtitle">모든 반의 학생 현황</div>
         </div>
       </div>
+      <div id="overview-checklist" style="margin-bottom:16px"></div>
       <div class="grid4" style="margin-bottom:20px" id="overview-metrics"></div>
       <div class="card">
-        <div style="font-size:13px;font-weight:600;margin-bottom:14px;color:var(--text2);letter-spacing:0.5px;text-transform:uppercase;font-size:11px">반별 학생 현황</div>
+        <div style="font-size:11px;font-weight:600;margin-bottom:14px;color:var(--text2);letter-spacing:0.5px;text-transform:uppercase">반별 학생 현황</div>
         <div id="overview-classes"></div>
       </div>
     </div>
@@ -710,6 +761,12 @@ body {
         </div>
         <button class="btn btn-primary" onclick="openAddHW()">+ 오늘 기록</button>
       </div>
+      <div class="date-filter" id="hw-date-filter">
+        <button class="df-btn active" onclick="setDateFilter('hw','all',this)">전체</button>
+        <button class="df-btn" onclick="setDateFilter('hw','today',this)">오늘</button>
+        <button class="df-btn" onclick="setDateFilter('hw','week',this)">이번 주</button>
+        <button class="df-btn" onclick="setDateFilter('hw','month',this)">이번 달</button>
+      </div>
       <div class="card">
         <table class="hw-table">
           <thead><tr>
@@ -729,6 +786,12 @@ body {
           <div class="page-subtitle" id="experiments-subtitle"></div>
         </div>
         <button class="btn btn-primary" onclick="openAddExp()">+ 실험 추가</button>
+      </div>
+      <div class="date-filter" id="exp-date-filter">
+        <button class="df-btn active" onclick="setDateFilter('exp','all',this)">전체</button>
+        <button class="df-btn" onclick="setDateFilter('exp','today',this)">오늘</button>
+        <button class="df-btn" onclick="setDateFilter('exp','week',this)">이번 주</button>
+        <button class="df-btn" onclick="setDateFilter('exp','month',this)">이번 달</button>
       </div>
       <div id="exp-content"></div>
     </div>
@@ -750,7 +813,12 @@ body {
         <div style="font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;color:var(--text3);margin-bottom:12px">숙제 퀄리티 추이</div>
         <div id="briefing-hw-trend"></div>
       </div>
-      <button class="btn btn-primary" style="width:100%" onclick="generateBriefingScript()">✨ 브리핑 스크립트 자동 생성</button>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button class="btn btn-primary" style="flex:1" onclick="generateReport('week')">📋 이번 주 요약</button>
+        <button class="btn btn-primary" style="flex:1" onclick="generateReport('month')">📊 이번 달 요약</button>
+      </div>
+      <div id="report-result" style="margin-bottom:12px"></div>
+      <button class="btn" style="width:100%;border-color:var(--accent);color:var(--accent)" onclick="generateBriefingScript()">✨ 브리핑 스크립트 자동 생성</button>
       <div id="briefing-script-result" style="margin-top:12px"></div>
     </div>
 
@@ -1174,6 +1242,8 @@ function renderOverview() {
     currentClass === 'all' ? `전체 ${db.classes.length}개 반` :
     (db.classes.find(c=>c.id===currentClass)||{}).name + '반';
 
+  renderChecklist();
+
   document.getElementById('overview-metrics').innerHTML = `
     <div class="metric"><div class="metric-val">${students.length}</div><div class="metric-label">담당 학생</div></div>
     <div class="metric"><div class="metric-val">${hw.length}</div><div class="metric-label">숙제 기록</div></div>
@@ -1262,6 +1332,115 @@ function mobileClassNav(classId) {
   renderMobileMenu();
 }
 
+// ===== SEARCH =====
+function onGlobalSearch(val) {
+  const box = document.getElementById('search-results');
+  if (!val.trim()) { box.style.display='none'; return; }
+  const q = val.trim().toLowerCase();
+  const matches = db.students.filter(s=>s.name.toLowerCase().includes(q));
+  if (!matches.length) { box.innerHTML='<div style="padding:10px;font-size:12px;color:var(--text3)">결과 없음</div>'; box.style.display='block'; return; }
+  box.innerHTML = matches.map(s=>{
+    const cls = db.classes.find(c=>c.id===s.classId);
+    return `<div style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--surface2);display:flex;align-items:center;gap:8px" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''" onclick="document.getElementById('global-search').value='';document.getElementById('search-results').style.display='none';setMenuDirect('students');setTimeout(()=>showStudentDetail('${s.id}'),100)">
+      <span style="font-weight:500">${s.name}</span>
+      <span class="badge badge-gray" style="font-size:10px">${s.grade}</span>
+      ${cls?`<span style="font-size:10px;color:${cls.color}">${cls.name}</span>`:''}
+    </div>`;
+  }).join('');
+  box.style.display='block';
+}
+document.addEventListener('click',(e)=>{if(!e.target.closest('#global-search')&&!e.target.closest('#search-results'))document.getElementById('search-results').style.display='none';});
+
+// ===== DATE FILTER =====
+let hwDateFilter = 'all';
+let expDateFilter = 'all';
+
+function setDateFilter(type, period, btn) {
+  if (type==='hw') hwDateFilter=period; else expDateFilter=period;
+  btn.closest('.date-filter').querySelectorAll('.df-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderPage();
+}
+
+function filterByDate(items, period, dateField) {
+  if (period==='all') return items;
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
+  if (period==='today') return items.filter(i=>i[dateField]===today);
+  if (period==='week') {
+    const d = new Date(now); d.setDate(d.getDate()-d.getDay());
+    const weekStart = d.toISOString().split('T')[0];
+    return items.filter(i=>i[dateField]>=weekStart);
+  }
+  if (period==='month') {
+    const monthStart = today.slice(0,7)+'-01';
+    return items.filter(i=>i[dateField]>=monthStart);
+  }
+  return items;
+}
+
+// ===== CHECKLIST =====
+function renderChecklist() {
+  const el = document.getElementById('overview-checklist');
+  const today = new Date().toISOString().split('T')[0];
+  const dayNames = ['일','월','화','수','목','금','토'];
+  const todayDay = dayNames[new Date().getDay()];
+  const items = [];
+
+  // 오늘 수업 있는 반
+  const todayClasses = db.classes.filter(c=>(c.time||'').includes(todayDay));
+  if (todayClasses.length) {
+    items.push({icon:'📚',bg:'var(--accent-light)',text:`오늘 수업: ${todayClasses.map(c=>c.name).join(', ')} (${todayClasses.length}개 반)`});
+  } else {
+    items.push({icon:'☀️',bg:'var(--surface2)',text:'오늘은 수업이 없습니다'});
+  }
+
+  // 하브루타 대상 (온라인 1개 이상 틀린 학생)
+  const recentHW = db.homework.filter(h=>h.date>=today.slice(0,7)+'-01');
+  const havrutaStudents = [];
+  db.students.forEach(s=>{
+    const sHW = recentHW.filter(h=>h.student===s.name && h.wrongs && h.wrongs.length>=1);
+    if (sHW.length) havrutaStudents.push(s.name);
+  });
+  if (havrutaStudents.length) {
+    items.push({icon:'🗣️',bg:'var(--gold-light)',text:`하브루타 대상: ${havrutaStudents.slice(0,5).join(', ')}${havrutaStudents.length>5?' 외 '+(havrutaStudents.length-5)+'명':''}`});
+  }
+
+  // 숙제 별점 2 이하 경고
+  const lowStars = [];
+  db.students.forEach(s=>{
+    const rows = db.homework.filter(h=>h.student===s.name);
+    if (rows.length) {
+      const last = rows[rows.length-1];
+      if (last.stars<=2) lowStars.push(s.name);
+    }
+  });
+  if (lowStars.length) {
+    items.push({icon:'⚠️',bg:'var(--accent2-light)',text:`숙제 퀄리티 주의: ${lowStars.join(', ')} (★2 이하)`});
+  }
+
+  // 상담 2주 이상 없음
+  const twoWeeksAgo = new Date(Date.now()-14*86400000).toISOString().split('T')[0];
+  const noRecord = db.students.filter(s=>{
+    const rows = db.homework.filter(h=>h.student===s.name);
+    const exps = db.experiments.filter(e=>e.student===s.name);
+    const all = [...rows,...exps].sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+    return !all.length || all[all.length-1].date < twoWeeksAgo;
+  });
+  if (noRecord.length) {
+    items.push({icon:'📝',bg:'#EAF1FB',text:`2주 이상 기록 없음: ${noRecord.map(s=>s.name).join(', ')}`});
+  }
+
+  if (!items.length) { el.innerHTML=''; return; }
+  el.innerHTML = `<div class="checklist-card">
+    <div style="font-size:11px;font-weight:600;letter-spacing:0.5px;color:var(--text3);margin-bottom:8px;text-transform:uppercase">📋 수업 전 체크리스트</div>
+    ${items.map(i=>`<div class="checklist-item">
+      <div class="cl-icon" style="background:${i.bg}">${i.icon}</div>
+      <div style="flex:1">${i.text}</div>
+    </div>`).join('')}
+  </div>`;
+}
+
 // ===== STUDENTS =====
 function renderStudents() {
   const students = getFilteredStudents();
@@ -1281,14 +1460,38 @@ function renderStudents() {
     const color = db.classes.find(c=>c.id===s.classId)?.color || colors[i%6];
     const avg = getAvgHW(s.name);
     const cls = db.classes.find(c=>c.id===s.classId);
+    // 요약 한 줄 계산
+    const sHW = db.homework.filter(h=>h.student===s.name);
+    const sWrongs = sHW.flatMap(h=>h.wrongs||[]);
+    const stc = countTypes(sWrongs);
+    const weakType = stc.eng>=stc.ord&&stc.eng>=stc.kor?(stc.eng?'영작':''):(stc.ord>=stc.kor?(stc.ord?'어순':''):(stc.kor?'해석':''));
+    const now = new Date(); const thisMonth = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+    const sups = (db.supplements||[]).filter(sp=>sp.student===s.name&&sp.date&&sp.date.startsWith(thisMonth));
+    const stayN = sups.filter(sp=>sp.type==='스테이').length;
+    const earlyN = sups.filter(sp=>sp.type==='조기등원').length;
+    // 추이
+    let trend = '';
+    if (sHW.length >= 2) {
+      const last = sHW[sHW.length-1].stars, prev = sHW[sHW.length-2].stars;
+      if (last > prev) trend = '<span style="color:var(--accent)">↑</span>';
+      else if (last < prev) trend = '<span style="color:var(--accent2)">↓</span>';
+      else trend = '<span style="color:var(--text3)">→</span>';
+    }
+    const summaryParts = [];
+    if (weakType) summaryParts.push(`취약:${weakType}`);
+    if (stayN||earlyN) summaryParts.push(`보충:${stayN?'스테이'+stayN:''}${earlyN?(stayN?'+':'')+'조기'+earlyN:''}`);
+    const summaryLine = summaryParts.join(' · ');
+
     html += `<div class="student-card" onclick="showStudentDetail('${s.id}')">
       <div class="avatar" style="background:${color}20;color:${color}">${s.name.slice(0,2)}</div>
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;gap:6px">
           <span class="student-name">${s.name}</span>
           <span class="badge badge-gray" style="font-size:10px">${s.grade}</span>
+          ${trend}
         </div>
-        <div class="student-meta">${cls?'['+cls.name+'] ':''} ${s.trait?s.trait.slice(0,24)+'…':''}</div>
+        <div class="student-meta">${cls?'['+cls.name+'] ':''} ${s.trait?s.trait.slice(0,20)+'…':''}</div>
+        ${summaryLine?`<div style="font-size:10px;color:var(--text2);margin-top:2px">${summaryLine}</div>`:''}
       </div>
       <div style="text-align:right;flex-shrink:0">
         ${avg ? `<div style="font-size:13px;font-weight:600;color:${avg>=4?'var(--accent)':avg>=3?'var(--gold)':'var(--accent2)'}">★${avg.toFixed(1)}</div>` : '<div style="font-size:11px;color:var(--text3)">기록없음</div>'}
@@ -1600,7 +1803,7 @@ function showStudentDetail(id) {
 
 // ===== HOMEWORK =====
 function renderHomework() {
-  const hw = getFilteredHW().slice().reverse();
+  const hw = filterByDate(getFilteredHW(), hwDateFilter, 'date').slice().reverse();
   const cls = db.classes.find(c=>c.id===currentClass);
   document.getElementById('homework-subtitle').textContent =
     currentClass==='all' ? `전체 ${hw.length}건` : `${cls?.name||''}반 · ${hw.length}건`;
@@ -1632,7 +1835,7 @@ function renderHomework() {
 
 // ===== EXPERIMENTS =====
 function renderExperiments() {
-  const exps = getFilteredExp().slice().reverse();
+  const exps = filterByDate(getFilteredExp(), expDateFilter, 'date').slice().reverse();
   const cls = db.classes.find(c=>c.id===currentClass);
   document.getElementById('experiments-subtitle').textContent =
     currentClass==='all' ? `전체 ${exps.length}건` : `${cls?.name||''}반 · ${exps.length}건`;
@@ -2648,6 +2851,70 @@ ${context}
   advice += `</div>`;
   el.innerHTML = advice;
   input.value = '';
+}
+
+// ===== WEEKLY/MONTHLY REPORT =====
+function generateReport(period) {
+  const el = document.getElementById('report-result');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div> 리포트 생성 중...</div>';
+
+  const now = new Date();
+  const students = getFilteredStudents();
+  let dateFrom;
+  if (period==='week') {
+    const d = new Date(now); d.setDate(d.getDate()-7);
+    dateFrom = d.toISOString().split('T')[0];
+  } else {
+    dateFrom = now.toISOString().split('T')[0].slice(0,7)+'-01';
+  }
+  const periodLabel = period==='week'?'이번 주':'이번 달';
+
+  const hw = db.homework.filter(h=>h.date>=dateFrom);
+  const exp = db.experiments.filter(e=>e.date>=dateFrom);
+  const filteredHW = students.length ? hw.filter(h=>students.some(s=>s.name===h.student)) : hw;
+  const filteredExp = students.length ? exp.filter(e=>students.some(s=>s.name===e.student)) : exp;
+  const avgStars = filteredHW.length ? (filteredHW.reduce((a,b)=>a+b.stars,0)/filteredHW.length).toFixed(1) : '—';
+  const goodExp = filteredExp.filter(e=>e.effect==='good');
+  const badExp = filteredExp.filter(e=>e.effect==='bad');
+  const totalWrongs = filteredHW.reduce((a,h)=>a+(h.wrongs?h.wrongs.length:0),0);
+
+  // 학생별 퀄리티 변화
+  let studentSummary = '';
+  students.forEach(s => {
+    const sHW = filteredHW.filter(h=>h.student===s.name);
+    if (!sHW.length) return;
+    const avg = (sHW.reduce((a,b)=>a+b.stars,0)/sHW.length).toFixed(1);
+    const wrongs = sHW.reduce((a,h)=>a+(h.wrongs?h.wrongs.length:0),0);
+    studentSummary += `<div class="trend-row" style="font-size:12px">
+      <b>${s.name}</b>
+      <span>★${avg} (${sHW.length}건)</span>
+      ${wrongs?`<span class="badge badge-red" style="font-size:10px">${wrongs}오답</span>`:''}
+    </div>`;
+  });
+
+  // 주요 이슈
+  const lowStudents = [];
+  students.forEach(s=>{
+    const sHW = filteredHW.filter(h=>h.student===s.name);
+    if (sHW.length && sHW[sHW.length-1].stars <= 2) lowStudents.push(s.name);
+  });
+
+  el.innerHTML = `<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h4 style="margin:0">📊 ${periodLabel} 리포트</h4>
+      <span class="badge badge-gray">${dateFrom} ~</span>
+    </div>
+    <div class="grid3" style="margin-bottom:14px">
+      <div class="metric"><div class="metric-val">${filteredHW.length}</div><div class="metric-label">숙제 기록</div></div>
+      <div class="metric"><div class="metric-val">${avgStars}</div><div class="metric-label">평균 퀄리티</div></div>
+      <div class="metric"><div class="metric-val">${filteredExp.length}</div><div class="metric-label">실험 기록</div></div>
+    </div>
+    ${totalWrongs?`<div style="padding:8px 12px;background:var(--accent2-light);border-radius:6px;margin-bottom:10px;font-size:12px">총 오답 <b>${totalWrongs}</b>문제 발생</div>`:''}
+    ${goodExp.length?`<div style="padding:8px 12px;background:var(--accent-light);border-radius:6px;margin-bottom:10px;font-size:12px">효과있는 실험 <b>${goodExp.length}</b>건: ${goodExp.slice(-3).map(e=>`${e.student}(${e.method.slice(0,15)})`).join(', ')}</div>`:''}
+    ${lowStudents.length?`<div style="padding:8px 12px;background:var(--accent2-light);border-radius:6px;margin-bottom:10px;font-size:12px">⚠️ 퀄리티 주의: <b>${lowStudents.join(', ')}</b></div>`:''}
+    <div style="font-size:11px;font-weight:600;color:var(--text3);margin:12px 0 6px;text-transform:uppercase">학생별 현황</div>
+    ${studentSummary||'<p style="font-size:12px;color:var(--text3)">기간 내 기록 없음</p>'}
+  </div>`;
 }
 
 function selectColor(el, color) {
