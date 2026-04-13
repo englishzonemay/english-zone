@@ -1,0 +1,2667 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>English Zone — 코칭 트래커</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #F7F5F0;
+  --surface: #FFFFFF;
+  --surface2: #F0EDE6;
+  --border: #E2DDD4;
+  --text: #1A1714;
+  --text2: #6B6560;
+  --text3: #A09890;
+  --accent: #2D5A3D;
+  --accent-light: #E8F0EA;
+  --accent2: #C4562A;
+  --accent2-light: #FAEEE8;
+  --gold: #B8860B;
+  --gold-light: #FDF6E3;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 2px 12px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 24px rgba(0,0,0,0.10);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Noto Sans KR', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* HEADER */
+.header {
+  background: var(--accent);
+  color: white;
+  padding: 0 24px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.header-logo {
+  font-family: 'DM Serif Display', serif;
+  font-size: 18px;
+  letter-spacing: 0.5px;
+}
+.header-logo span { opacity: 0.6; font-size: 12px; font-family: 'Noto Sans KR', sans-serif; margin-left: 8px; font-weight: 300; }
+
+/* LAYOUT */
+.layout { display: flex; min-height: calc(100vh - 56px); }
+
+/* SIDEBAR */
+.sidebar {
+  width: 220px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 20px 0;
+  flex-shrink: 0;
+  position: sticky;
+  top: 56px;
+  height: calc(100vh - 56px);
+  overflow-y: auto;
+}
+.sidebar-section { margin-bottom: 8px; }
+.sidebar-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--text3);
+  padding: 8px 20px 4px;
+}
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 20px;
+  cursor: pointer;
+  color: var(--text2);
+  font-size: 13px;
+  border-left: 3px solid transparent;
+  transition: all 0.15s;
+}
+.sidebar-item:hover { background: var(--surface2); color: var(--text); }
+.sidebar-item:hover .sidebar-edit-btn { opacity: 1 !important; }
+.sidebar-item.active { background: var(--accent-light); color: var(--accent); border-left-color: var(--accent); font-weight: 500; }
+.sidebar-item[draggable="true"] { transition: all 0.15s, border-top 0s; }
+.sidebar-item[draggable="true"].dragging { opacity: 0.4; }
+.sidebar-item .dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--border); flex-shrink: 0;
+}
+.sidebar-item.active .dot { background: var(--accent); }
+.sidebar-divider { height: 1px; background: var(--border); margin: 8px 16px; }
+.btn-add-class {
+  margin: 8px 16px;
+  padding: 8px 12px;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text3);
+  font-size: 12px;
+  cursor: pointer;
+  width: calc(100% - 32px);
+  text-align: center;
+  font-family: 'Noto Sans KR', sans-serif;
+  transition: all 0.15s;
+}
+.btn-add-class:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+
+/* MAIN */
+.main { flex: 1; padding: 24px; overflow-y: auto; max-width: 900px; }
+
+/* PAGE TITLE */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.page-title { font-size: 20px; font-weight: 700; }
+.page-subtitle { font-size: 13px; color: var(--text2); margin-top: 2px; }
+
+/* TABS */
+.tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--surface2);
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 20px;
+  width: fit-content;
+}
+.tab-btn {
+  padding: 7px 16px;
+  border: none;
+  background: none;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--text2);
+  font-family: 'Noto Sans KR', sans-serif;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.tab-btn.active { background: var(--surface); color: var(--text); font-weight: 500; box-shadow: var(--shadow); }
+
+/* CARDS */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow);
+}
+.card-sm { padding: 14px 16px; }
+
+/* GRID */
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+
+/* METRIC */
+.metric {
+  background: var(--surface2);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  text-align: center;
+}
+.metric-val { font-size: 26px; font-weight: 700; color: var(--text); }
+.metric-label { font-size: 11px; color: var(--text2); margin-top: 2px; }
+
+/* STUDENT CARD */
+.student-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.15s;
+  box-shadow: var(--shadow);
+}
+.student-card:hover { border-color: var(--accent); box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.avatar {
+  width: 42px; height: 42px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 700;
+  flex-shrink: 0;
+}
+.student-name { font-size: 15px; font-weight: 500; }
+.student-meta { font-size: 12px; color: var(--text2); margin-top: 1px; }
+.student-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+
+/* BADGES */
+.badge {
+  display: inline-flex; align-items: center;
+  padding: 3px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 500;
+}
+.badge-green { background: var(--accent-light); color: var(--accent); }
+.badge-red { background: var(--accent2-light); color: var(--accent2); }
+.badge-gold { background: var(--gold-light); color: var(--gold); }
+.badge-gray { background: var(--surface2); color: var(--text2); }
+.badge-blue { background: #EAF1FB; color: #185FA5; }
+
+/* BUTTONS */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-family: 'Noto Sans KR', sans-serif;
+  transition: all 0.15s;
+  font-weight: 500;
+}
+.btn:hover { background: var(--surface2); }
+.btn-primary { background: var(--accent); color: white; border-color: var(--accent); }
+.btn-primary:hover { background: #234a30; }
+.btn-danger { background: var(--accent2-light); color: var(--accent2); border-color: #e8c4b4; }
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+
+/* FORM */
+.field { margin-bottom: 14px; }
+.field label { display: block; font-size: 12px; font-weight: 500; color: var(--text2); margin-bottom: 5px; }
+.field input, .field textarea, .field select {
+  width: 100%;
+  padding: 9px 12px;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-family: 'Noto Sans KR', sans-serif;
+  transition: border-color 0.15s;
+}
+.field input:focus, .field textarea:focus, .field select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.field textarea { height: 80px; resize: vertical; }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+/* STARS */
+.stars { display: flex; gap: 4px; }
+.star { font-size: 22px; cursor: pointer; color: var(--border); transition: color 0.1s; }
+.star.on { color: var(--gold); }
+
+/* HW LIST */
+.hw-table { width: 100%; border-collapse: collapse; }
+.hw-table th { font-size: 11px; font-weight: 600; color: var(--text3); text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); letter-spacing: 0.5px; }
+.hw-table td { padding: 10px 10px; border-bottom: 1px solid var(--border); font-size: 13px; }
+.hw-table tr:last-child td { border-bottom: none; }
+.hw-table tr:hover td { background: var(--surface2); }
+
+/* EXP ITEM */
+.exp-item {
+  border-left: 3px solid var(--border);
+  padding: 10px 14px;
+  margin-bottom: 10px;
+  background: var(--surface);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  border-top: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.exp-item.good { border-left-color: var(--accent); }
+.exp-item.bad { border-left-color: var(--accent2); }
+.exp-item.neutral { border-left-color: var(--gold); }
+
+/* MODAL */
+.modal-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 24px;
+  width: 100%;
+  max-width: 480px;
+  max-height: 88vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-md);
+  animation: modalIn 0.18s ease;
+}
+@keyframes modalIn { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: none; } }
+.modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.modal-title { font-size: 16px; font-weight: 700; }
+.modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text2); line-height: 1; padding: 2px 6px; border-radius: 4px; }
+.modal-close:hover { background: var(--surface2); }
+.modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+
+/* DIVIDER */
+.divider { height: 1px; background: var(--border); margin: 16px 0; }
+
+/* EMPTY STATE */
+.empty { text-align: center; padding: 40px 20px; color: var(--text3); }
+.empty-icon { font-size: 32px; margin-bottom: 10px; }
+.empty p { font-size: 13px; }
+
+/* TAG */
+.tag { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; background: var(--surface2); color: var(--text2); margin: 2px; }
+
+/* WRONG ITEM (온라인 틀린 문제) */
+.wrong-item {
+  background: var(--surface2);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin-bottom: 8px;
+  position: relative;
+  border-left: 3px solid var(--accent2);
+}
+.wrong-item .wrong-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.wrong-item .wrong-num {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent2);
+}
+.wrong-item .wrong-del {
+  background: none; border: none; color: var(--text3); cursor: pointer; font-size: 16px; padding: 0 4px; line-height: 1;
+}
+.wrong-item .wrong-del:hover { color: var(--accent2); }
+.wrong-item input, .wrong-item textarea {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  background: var(--surface);
+}
+.wrong-item input:focus, .wrong-item textarea:focus { border-color: var(--accent); outline: none; }
+.wrong-item textarea { height: 50px; resize: vertical; font-family: inherit; }
+.wrong-field { margin-bottom: 6px; }
+.wrong-field label { display: block; font-size: 10px; font-weight: 600; color: var(--text3); margin-bottom: 2px; letter-spacing: 0.5px; }
+.type-chip {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;
+  cursor: pointer; border: 1.5px solid var(--border); background: var(--surface); color: var(--text2);
+  transition: all 0.15s; user-select: none;
+}
+.type-chip.on-eng { background: var(--accent2); color: white; border-color: var(--accent2); }
+.type-chip.on-ord { background: var(--gold); color: white; border-color: var(--gold); }
+.type-chip.on-kor { background: #185FA5; color: white; border-color: #185FA5; }
+/* Collapse toggle */
+.wrong-collapse-btn {
+  display: flex; align-items: center; gap: 6px; padding: 8px 12px;
+  background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  cursor: pointer; font-size: 12px; color: var(--text2); width: 100%; font-weight: 500; transition: all 0.15s;
+}
+.wrong-collapse-btn:hover { background: var(--accent-light); color: var(--accent); }
+.wrong-collapse-btn .arrow { transition: transform 0.2s; }
+.wrong-collapse-btn.open .arrow { transform: rotate(90deg); }
+
+/* STUDENT PICK BUTTON (실험 기록 반별 학생) */
+.student-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text2);
+  transition: all 0.15s;
+}
+.student-pick:hover { border-color: var(--accent); color: var(--text); }
+.student-pick.selected {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+/* TIME PICKER */
+.time-picker-wrap {
+  position:relative; display:inline-block;
+}
+.time-picker-wrap .time-val {
+  display:inline-block; padding:6px 14px; border:1px solid var(--border);
+  border-radius:6px; font-size:13px; cursor:pointer; background:var(--surface);
+  min-width:80px; text-align:center; user-select:none;
+}
+.time-picker-wrap .time-val:hover { border-color:var(--accent); }
+.time-picker-wrap .time-val.active { border-color:var(--accent); background:var(--accent-light); }
+.time-dropdown {
+  display:none; position:absolute; top:100%; left:0; z-index:100;
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm);
+  box-shadow:var(--shadow-md); padding:8px; margin-top:4px;
+  max-height:200px; overflow-y:auto; width:220px;
+}
+.time-dropdown.open { display:block; }
+.time-dropdown .time-btn {
+  display:inline-block; padding:4px 8px; margin:2px; border-radius:4px;
+  font-size:12px; cursor:pointer; border:1px solid var(--border);
+  background:var(--surface); color:var(--text2); transition:all 0.1s;
+}
+.time-dropdown .time-btn:hover { background:var(--accent-light); color:var(--accent); border-color:var(--accent); }
+.time-dropdown .time-btn.selected { background:var(--accent); color:white; border-color:var(--accent); }
+
+/* COACHING ASSISTANT */
+.coach-section {
+  margin-bottom:14px;
+  border-radius: var(--radius-sm);
+  overflow:hidden;
+}
+.coach-header {
+  display:flex; align-items:center; gap:8px;
+  padding:10px 14px; cursor:pointer; font-size:13px; font-weight:600;
+  transition: background 0.15s;
+}
+.coach-header:hover { filter:brightness(0.95); }
+.coach-header .ch-arrow { transition:transform 0.2s; font-size:10px; }
+.coach-header.open .ch-arrow { transform:rotate(90deg); }
+.coach-body { padding:12px 14px; font-size:12px; line-height:1.7; }
+.coach-card {
+  padding:10px 12px; border-radius:8px; margin-bottom:8px;
+  border-left:3px solid var(--border);
+}
+.coach-table { width:100%; border-collapse:collapse; font-size:12px; }
+.coach-table th { text-align:left; padding:6px 8px; border-bottom:2px solid var(--border); font-size:11px; color:var(--text3); }
+.coach-table td { padding:6px 8px; border-bottom:1px solid var(--border); }
+.coach-input-wrap {
+  display:flex; gap:8px; margin-top:8px;
+}
+.coach-input-wrap input {
+  flex:1; padding:8px 12px; border:1px solid var(--border);
+  border-radius:20px; font-size:13px; background:var(--surface);
+}
+.coach-input-wrap input:focus { border-color:var(--accent); outline:none; }
+.coach-input-wrap button {
+  flex-shrink:0; padding:8px 16px; border-radius:20px;
+  background:var(--accent); color:white; border:none;
+  font-size:12px; font-weight:600; cursor:pointer;
+}
+.coach-input-wrap button:hover { filter:brightness(0.9); }
+
+/* WEAKNESS ANALYSIS (취약점 분석) */
+.weakness-box {
+  background: var(--accent2-light);
+  border: 1px solid #f0cbb8;
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  margin-top: 8px;
+}
+.weakness-box h5 {
+  font-size: 12px;
+  color: var(--accent2);
+  margin-bottom: 6px;
+}
+.weakness-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+.weakness-bar-label { width: 28px; font-weight: 500; color: var(--text2); }
+.weakness-bar-bg {
+  flex: 1;
+  height: 14px;
+  background: var(--surface);
+  border-radius: 7px;
+  overflow: hidden;
+}
+.weakness-bar-fill {
+  height: 100%;
+  border-radius: 7px;
+  transition: width 0.3s;
+}
+.weakness-bar-count { width: 30px; text-align: right; color: var(--text3); font-size: 11px; }
+
+/* SUMMARY BOX */
+.summary-method {
+  background: var(--accent-light);
+  border: 1px solid #c5dac9;
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+.trend-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.trend-row:last-child { border-bottom: none; }
+
+/* DETAIL PANEL */
+.detail-section { margin-bottom: 18px; }
+.detail-section h4 { font-size: 11px; font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase; color: var(--text3); margin-bottom: 8px; }
+
+/* COUNSELING INPUT */
+.counseling-box {
+  background: var(--surface2);
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+/* AI RESULT */
+.ai-result {
+  background: var(--gold-light);
+  border: 1px solid #e8d48a;
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-top: 12px;
+  font-size: 13px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+}
+
+/* LOADING */
+.loading { display: flex; align-items: center; gap: 8px; color: var(--text2); font-size: 13px; padding: 12px 0; }
+.spinner { width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* CLASS HEADER */
+.class-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px; font-weight: 600;
+  margin-right: 6px; margin-bottom: 6px;
+  cursor: pointer;
+  border: 1.5px solid transparent;
+  transition: all 0.15s;
+}
+
+/* SCROLL */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* DAY PICKER */
+.day-btn {
+  width:36px; height:36px; border-radius:50%; border:1.5px solid var(--border);
+  background:var(--surface); color:var(--text2); font-size:13px; font-weight:600;
+  cursor:pointer; transition:all 0.15s; display:inline-flex; align-items:center; justify-content:center;
+}
+.day-btn:hover { border-color:var(--accent); color:var(--accent); }
+.day-btn.on { background:var(--accent); color:white; border-color:var(--accent); }
+.time-preview {
+  margin-top:8px; padding:8px 12px; background:var(--surface2); border-radius:6px;
+  font-size:13px; font-weight:500; color:var(--text); text-align:center;
+  border:1px dashed var(--border);
+}
+
+/* HAMBURGER MENU */
+.hamburger {
+  display: none;
+  background: none; border: none; color: white;
+  font-size: 22px; cursor: pointer; padding: 4px 8px; line-height: 1;
+}
+.mobile-menu {
+  display: none;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 16px;
+  box-shadow: var(--shadow-md);
+}
+.mobile-menu.open { display: block; }
+.mobile-menu .mm-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 1px;
+  text-transform: uppercase; color: var(--text3); margin: 8px 0 4px;
+}
+.mobile-menu .mm-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 12px; border-radius: var(--radius-sm);
+  cursor: pointer; font-size: 13px; color: var(--text2);
+}
+.mobile-menu .mm-item:hover { background: var(--surface2); color: var(--text); }
+.mobile-menu .mm-item.active { background: var(--accent-light); color: var(--accent); font-weight: 500; }
+
+@media (max-width: 700px) {
+  .sidebar { display: none !important; }
+  .hamburger { display: block; }
+  .grid3 { grid-template-columns: 1fr 1fr; }
+  .grid4 { grid-template-columns: 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div style="display:flex;align-items:center;gap:8px">
+    <button class="hamburger" onclick="toggleMobileMenu()">☰</button>
+    <div class="header-logo" onclick="goHome()" style="cursor:pointer">English Zone <span>코칭 트래커</span></div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center">
+    <span id="header-class-name" style="font-size:12px;opacity:0.7"></span>
+    <button class="btn btn-sm" style="background:rgba(255,255,255,0.15);border-color:rgba(255,255,255,0.3);color:white" onclick="openModal('modal-counseling')">📋 상담일지 분석</button>
+  </div>
+</header>
+
+<!-- MOBILE MENU -->
+<div class="mobile-menu" id="mobile-menu">
+  <div class="mm-label">메뉴</div>
+  <div class="mm-item active" onclick="mobileNav('overview')">전체 현황</div>
+  <div class="mm-item" onclick="mobileNav('students')">학생 카드</div>
+  <div class="mm-item" onclick="mobileNav('homework')">숙제 체크</div>
+  <div class="mm-item" onclick="mobileNav('experiments')">실험 기록</div>
+  <div class="mm-item" onclick="mobileNav('briefing')">브리핑 준비</div>
+  <div class="mm-label">반 선택</div>
+  <div id="mobile-class-list"></div>
+</div>
+
+<div class="layout">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">메뉴</div>
+      <div class="sidebar-item active" onclick="setMenu('overview',this)">
+        <div class="dot"></div> 전체 현황
+      </div>
+      <div class="sidebar-item" onclick="setMenu('students',this)">
+        <div class="dot"></div> 학생 카드
+      </div>
+      <div class="sidebar-item" onclick="setMenu('homework',this)">
+        <div class="dot"></div> 숙제 체크
+      </div>
+      <div class="sidebar-item" onclick="setMenu('experiments',this)">
+        <div class="dot"></div> 실험 기록
+      </div>
+      <div class="sidebar-item" onclick="setMenu('briefing',this)">
+        <div class="dot"></div> 브리핑 준비
+      </div>
+    </div>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">반 선택</div>
+      <div id="class-list-sidebar"></div>
+      <button class="btn-add-class" onclick="openAddClass()">+ 반 추가</button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- OVERVIEW -->
+    <div id="page-overview">
+      <div class="page-header">
+        <div>
+          <div class="page-title">전체 현황</div>
+          <div class="page-subtitle" id="overview-subtitle">모든 반의 학생 현황</div>
+        </div>
+      </div>
+      <div class="grid4" style="margin-bottom:20px" id="overview-metrics"></div>
+      <div class="card">
+        <div style="font-size:13px;font-weight:600;margin-bottom:14px;color:var(--text2);letter-spacing:0.5px;text-transform:uppercase;font-size:11px">반별 학생 현황</div>
+        <div id="overview-classes"></div>
+      </div>
+    </div>
+
+    <!-- STUDENTS -->
+    <div id="page-students" style="display:none">
+      <div class="page-header">
+        <div>
+          <div class="page-title">학생 카드</div>
+          <div class="page-subtitle" id="students-subtitle"></div>
+        </div>
+        <button class="btn btn-primary" onclick="openAddStudent()">+ 학생 추가</button>
+      </div>
+      <div id="students-content"></div>
+    </div>
+
+    <!-- HOMEWORK -->
+    <div id="page-homework" style="display:none">
+      <div class="page-header">
+        <div>
+          <div class="page-title">숙제 체크</div>
+          <div class="page-subtitle" id="homework-subtitle"></div>
+        </div>
+        <button class="btn btn-primary" onclick="openAddHW()">+ 오늘 기록</button>
+      </div>
+      <div class="card">
+        <table class="hw-table">
+          <thead><tr>
+            <th>날짜</th><th>학생</th><th>반</th><th>퀄리티</th><th>리딩 횟수</th><th>틀린 문제</th><th>AI 분석</th><th>특이사항</th><th></th>
+          </tr></thead>
+          <tbody id="hw-table-body"></tbody>
+        </table>
+        <div id="hw-weakness-analysis" style="margin-top:16px"></div>
+      </div>
+    </div>
+
+    <!-- EXPERIMENTS -->
+    <div id="page-experiments" style="display:none">
+      <div class="page-header">
+        <div>
+          <div class="page-title">실험 기록</div>
+          <div class="page-subtitle" id="experiments-subtitle"></div>
+        </div>
+        <button class="btn btn-primary" onclick="openAddExp()">+ 실험 추가</button>
+      </div>
+      <div id="exp-content"></div>
+    </div>
+
+    <!-- BRIEFING -->
+    <div id="page-briefing" style="display:none">
+      <div class="page-header">
+        <div>
+          <div class="page-title">브리핑 준비</div>
+          <div class="page-subtitle">5월 4일 보고 자료</div>
+        </div>
+      </div>
+      <div class="grid3" style="margin-bottom:16px" id="briefing-metrics"></div>
+      <div class="card" style="margin-bottom:12px">
+        <div style="font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;color:var(--text3);margin-bottom:12px">실험 효과 요약</div>
+        <div id="briefing-exp-summary"></div>
+      </div>
+      <div class="card" style="margin-bottom:12px">
+        <div style="font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;color:var(--text3);margin-bottom:12px">숙제 퀄리티 추이</div>
+        <div id="briefing-hw-trend"></div>
+      </div>
+      <button class="btn btn-primary" style="width:100%" onclick="generateBriefingScript()">✨ 브리핑 스크립트 자동 생성</button>
+      <div id="briefing-script-result" style="margin-top:12px"></div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ====== MODALS ====== -->
+
+<!-- 반 추가 -->
+<div class="modal-overlay" id="modal-add-class">
+<div class="modal">
+  <div class="modal-header">
+    <div class="modal-title">반 추가</div>
+    <button class="modal-close" onclick="closeModal('modal-add-class')">×</button>
+  </div>
+  <div class="field"><label>반 이름</label><input id="class-name-input" placeholder="예: W16, W17, 선택요일, 탄현반A"></div>
+  <div class="field">
+    <label>요일 (복수 선택)</label>
+    <div style="display:flex;gap:6px" id="class-day-btns"></div>
+  </div>
+  <div class="field">
+    <label>시간</label>
+    <div style="display:flex;align-items:center;gap:8px">
+      <div class="time-picker-wrap"><span class="time-val" id="class-start-val">시작</span><div class="time-dropdown" id="class-start-dd"></div></div>
+      <span style="color:var(--text3)">~</span>
+      <div class="time-picker-wrap"><span class="time-val" id="class-end-val">종료</span><div class="time-dropdown" id="class-end-dd"></div></div>
+    </div>
+  </div>
+  <div class="time-preview" id="class-time-preview">요일과 시간을 선택하세요</div>
+  <div class="field">
+    <label>반 색상</label>
+    <div style="display:flex;gap:8px;flex-wrap:wrap" id="color-picker"></div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn" onclick="closeModal('modal-add-class')">취소</button>
+    <button class="btn btn-primary" onclick="saveClass()">추가</button>
+  </div>
+</div>
+</div>
+
+<!-- 반 수정 -->
+<div class="modal-overlay" id="modal-edit-class">
+<div class="modal">
+  <div class="modal-header">
+    <div class="modal-title">반 수정</div>
+    <button class="modal-close" onclick="closeModal('modal-edit-class')">×</button>
+  </div>
+  <input type="hidden" id="edit-class-id">
+  <div class="field"><label>반 이름</label><input id="edit-class-name"></div>
+  <div class="field">
+    <label>요일 (복수 선택)</label>
+    <div style="display:flex;gap:6px" id="edit-class-day-btns"></div>
+  </div>
+  <div class="field">
+    <label>시간</label>
+    <div style="display:flex;align-items:center;gap:8px">
+      <div class="time-picker-wrap"><span class="time-val" id="edit-class-start-val">시작</span><div class="time-dropdown" id="edit-class-start-dd"></div></div>
+      <span style="color:var(--text3)">~</span>
+      <div class="time-picker-wrap"><span class="time-val" id="edit-class-end-val">종료</span><div class="time-dropdown" id="edit-class-end-dd"></div></div>
+    </div>
+  </div>
+  <div class="time-preview" id="edit-class-time-preview">요일과 시간을 선택하세요</div>
+  <div class="field">
+    <label>반 색상</label>
+    <div style="display:flex;gap:8px;flex-wrap:wrap" id="edit-class-color-picker"></div>
+  </div>
+  <div class="modal-footer" style="justify-content:space-between">
+    <button class="btn" onclick="deleteClass(document.getElementById('edit-class-id').value)" style="color:var(--accent2);border-color:var(--accent2)">삭제</button>
+    <div style="display:flex;gap:8px">
+      <button class="btn" onclick="closeModal('modal-edit-class')">취소</button>
+      <button class="btn btn-primary" onclick="saveEditClass()">저장</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- 학생 추가 -->
+<div class="modal-overlay" id="modal-add-student">
+<div class="modal">
+  <div class="modal-header">
+    <div class="modal-title">학생 추가</div>
+    <button class="modal-close" onclick="closeModal('modal-add-student')">×</button>
+  </div>
+  <div class="field-row">
+    <div class="field"><label>이름</label><input id="s-name" placeholder="예: 빅토"></div>
+    <div class="field"><label>학년</label><select id="s-grade"><option>초1</option><option>초2</option><option>초3</option><option>초4</option><option>초5</option><option>초6</option><option>중1</option><option>중2</option><option>중3</option></select></div>
+  </div>
+  <div class="field"><label>반</label><select id="s-class"></select></div>
+  <div class="field"><label>성향 / 관찰 내용</label><textarea id="s-trait" placeholder="예: 욕심은 있으나 속도 느림, 모르는 부분 넘어가기 어려워함"></textarea></div>
+  <div class="field"><label>주의사항</label><textarea id="s-note" placeholder="예: 너무 다그치면 다음날 결석 가능성, 화보다 친밀감으로 접근"></textarea></div>
+  <div class="field"><label>스몰톡 소재 (라포 형성용)</label><input id="s-talk" placeholder="예: 동생, 축구, 게임"></div>
+  <div class="modal-footer">
+    <button class="btn" onclick="closeModal('modal-add-student')">취소</button>
+    <button class="btn btn-primary" onclick="saveStudent()">저장</button>
+  </div>
+</div>
+</div>
+
+<!-- 학생 상세 -->
+<div class="modal-overlay" id="modal-student-detail">
+<div class="modal" style="max-width:640px;max-height:90vh;overflow-y:auto">
+  <div class="modal-header">
+    <div class="modal-title" id="detail-name"></div>
+    <button class="modal-close" onclick="closeModal('modal-student-detail')">×</button>
+  </div>
+  <div id="modal-detail-body"></div>
+</div>
+</div>
+
+<!-- 숙제 추가 -->
+<div class="modal-overlay" id="modal-add-hw">
+<div class="modal">
+  <div class="modal-header">
+    <div class="modal-title" id="hw-modal-title">숙제 퀄리티 기록</div>
+    <button class="modal-close" onclick="closeModal('modal-add-hw')">×</button>
+  </div>
+  <input type="hidden" id="hw-edit-id" value="">
+  <div class="field-row">
+    <div class="field"><label>날짜</label><input type="date" id="hw-date"></div>
+    <div class="field"><label>학생</label><select id="hw-student-sel"></select></div>
+  </div>
+  <div class="field">
+    <label>숙제 퀄리티</label>
+    <div class="stars" id="hw-stars">
+      <span class="star" onclick="setStar(1)">★</span>
+      <span class="star" onclick="setStar(2)">★</span>
+      <span class="star" onclick="setStar(3)">★</span>
+      <span class="star" onclick="setStar(4)">★</span>
+      <span class="star" onclick="setStar(5)">★</span>
+    </div>
+  </div>
+  <div class="field"><label>리딩 체크 (몇 번 읽었는지)</label>
+    <input type="number" id="hw-read" min="0" max="100" placeholder="예: 15" style="width:120px">
+  </div>
+  <div style="margin-bottom:12px">
+    <button type="button" class="wrong-collapse-btn" id="hw-wrong-toggle" onclick="toggleWrongList()">
+      <span class="arrow">▶</span> 온라인 틀린 문제 (<span id="hw-wrong-count">0</span>개)
+    </button>
+    <div id="hw-wrong-wrap" style="display:none;margin-top:8px">
+      <div id="hw-wrong-list"></div>
+      <button class="btn btn-sm" onclick="addWrongItem()" style="margin-top:6px">+ 틀린 문제 추가</button>
+    </div>
+  </div>
+  <div style="margin-bottom:14px;display:flex;gap:8px">
+    <button class="btn btn-sm" onclick="analyzeWrongPattern('current')" style="background:var(--accent2-light);color:var(--accent2);border-color:var(--accent2)">이번 회차 분석</button>
+    <button class="btn btn-sm" onclick="analyzeWrongPattern('cumulative')" style="background:var(--accent-light);color:var(--accent);border-color:var(--accent)">누적 분석</button>
+  </div>
+  <div id="hw-ai-analysis" style="margin-bottom:12px"></div>
+  <div class="field"><label>특이사항 (자유 작성)</label><textarea id="hw-memo" placeholder="예: 오늘 컨디션 안 좋아 보임, 집중력 떨어짐, 어머니와 통화 필요"></textarea></div>
+  <div class="modal-footer" style="justify-content:space-between">
+    <button class="btn" id="hw-delete-btn" onclick="deleteHW()" style="color:var(--accent2);border-color:var(--accent2);display:none">삭제</button>
+    <div style="display:flex;gap:8px">
+      <button class="btn" onclick="closeModal('modal-add-hw')">취소</button>
+      <button class="btn btn-primary" onclick="saveHW()">저장</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- 실험 추가 (반별 학생 선택) -->
+<div class="modal-overlay" id="modal-add-exp">
+<div class="modal" style="max-width:580px">
+  <div class="modal-header">
+    <div class="modal-title">실험 기록</div>
+    <button class="modal-close" onclick="closeModal('modal-add-exp')">×</button>
+  </div>
+  <div class="field-row">
+    <div class="field"><label>날짜</label><input type="date" id="exp-date"></div>
+    <div class="field"><label>반 선택</label><select id="exp-class-sel" onchange="renderExpStudentList()"></select></div>
+  </div>
+  <div class="field">
+    <label>학생 선택</label>
+    <div id="exp-student-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px"></div>
+    <input type="hidden" id="exp-student-sel" value="">
+  </div>
+  <div class="field"><label>시도한 방법</label><textarea id="exp-method" placeholder="예: 수업 전 동생 이야기로 스몰톡, 구두 어순 해석 같이 확인"></textarea></div>
+  <div class="field"><label>결과 / 반응</label><textarea id="exp-result" placeholder="예: 아이가 웃으며 반응, 그날 숙제 별점 4점으로 올라옴"></textarea></div>
+  <div class="field"><label>효과 판정</label>
+    <select id="exp-effect">
+      <option value="good">효과 있음 ✓</option>
+      <option value="neutral">보통 (더 지켜봐야 함)</option>
+      <option value="bad">효과 없음 ✗</option>
+    </select>
+  </div>
+  <div class="field"><label>다음에 이어서 할 것</label><input id="exp-next" placeholder="예: 다음 시간 동생 이야기 이어가기, 칭찬 구체적으로 해보기"></div>
+  <div class="modal-footer">
+    <button class="btn" onclick="closeModal('modal-add-exp')">취소</button>
+    <button class="btn btn-primary" onclick="saveExp()">저장</button>
+  </div>
+</div>
+</div>
+
+<!-- 상담일지 분석 -->
+<div class="modal-overlay" id="modal-counseling">
+<div class="modal" style="max-width:600px">
+  <div class="modal-header">
+    <div class="modal-title">📋 상담일지 분석</div>
+    <button class="modal-close" onclick="closeModal('modal-counseling')">×</button>
+  </div>
+  <p style="font-size:13px;color:var(--text2);margin-bottom:14px">상담 기록을 붙여넣으면 학생 성향, 주의사항, 코칭 포인트를 정리해드려요.</p>
+  <div class="field"><label>학생 이름 (선택)</label><input id="counsel-name" placeholder="예: 빅토"></div>
+  <div class="field"><label>상담 내용 붙여넣기</label><textarea id="counsel-text" style="height:160px" placeholder="상담 일지 내용을 여기에 복사해서 붙여넣으세요..."></textarea></div>
+  <button class="btn btn-primary" style="width:100%" onclick="analyzeCounseling()">✨ AI 분석하기</button>
+  <div id="counsel-result"></div>
+</div>
+</div>
+
+<script>
+// ===== DATA =====
+let db = {
+  classes: [],
+  students: [],
+  homework: [],
+  experiments: [],
+  supplements: []
+};
+let currentClass = 'all';
+let currentMenu = 'overview';
+let hwStar = 3;
+let selectedColor = '#2D5A3D';
+
+// ===== STORAGE =====
+function saveDB() {
+  localStorage.setItem('ez-coaching-db', JSON.stringify(db));
+}
+function loadDB() {
+  const d = localStorage.getItem('ez-coaching-db');
+  if (d) db = JSON.parse(d);
+  // 기본 반 없으면 샘플 추가
+  if (!db.classes.length) {
+    db.classes = [
+      { id: 'w16', name: 'W16', time: '월수 4시', color: '#2D5A3D' },
+      { id: 'w17', name: 'W17', time: '화목 5시', color: '#185FA5' },
+      { id: 'choice', name: '선택요일', time: '자율', color: '#C4562A' }
+    ];
+    saveDB();
+  }
+}
+
+// ===== INIT =====
+window.onload = () => {
+  loadDB();
+  renderSidebar();
+  renderPage();
+};
+
+// ===== COLOR PALETTE =====
+const colorPaletteRows = [
+  // 1줄: 선명한 색
+  ['#43A047','#EF5350','#2196F3','#AB47BC','#FF6F00','#E91E63','#0E8A6E','#607D8B'],
+  // 2줄: 연한 파스텔
+  ['#C8E6C9','#FFCDD2','#BBDEFB','#E1BEE7','#FFF9C4','#F8BBD0','#B2DFDB','#CFD8DC']
+];
+const colorPalette = colorPaletteRows.flat();
+
+function renderColorPicker(containerId, currentColor) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = colorPaletteRows.map((row, ri) =>
+    `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">${row.map(c =>
+      `<div class="color-opt" onclick="selectColor(this,'${c}')" style="width:28px;height:28px;border-radius:50%;background:${c};cursor:pointer;border:2px solid ${c===currentColor?'var(--text)':'transparent'}${ri>=1?';box-shadow:inset 0 0 0 1px rgba(0,0,0,0.08)':''}"></div>`
+    ).join('')}</div>`
+  ).join('');
+}
+
+// ===== SIDEBAR =====
+let dragSrcIdx = null;
+
+function renderSidebar() {
+  const el = document.getElementById('class-list-sidebar');
+  let html = `<div class="sidebar-item ${currentClass==='all'?'active':''}" onclick="setClass('all',this)">
+    <div class="dot" style="${currentClass==='all'?'background:var(--accent)':''}"></div> 전체
+  </div>`;
+  db.classes.forEach((c, idx) => {
+    const isActive = currentClass === c.id;
+    html += `<div class="sidebar-item ${isActive?'active':''}" draggable="true" data-idx="${idx}"
+      ondragstart="onClassDragStart(event,${idx})"
+      ondragover="onClassDragOver(event)"
+      ondragenter="event.target.closest('.sidebar-item').style.borderTop='2px solid var(--accent)'"
+      ondragleave="event.target.closest('.sidebar-item').style.borderTop=''"
+      ondrop="onClassDrop(event,${idx})"
+      ondragend="document.querySelectorAll('.sidebar-item').forEach(e=>e.style.borderTop='')"
+      onclick="setClass('${c.id}',this)"
+      oncontextmenu="event.preventDefault();openEditClass('${c.id}')"
+      style="${isActive?`color:${c.color};border-left-color:${c.color};background:${hexToLight(c.color)}`:''};cursor:grab">
+      <div class="dot" style="background:${c.color}"></div>
+      <span style="flex:1">${c.name}</span>
+      <span class="sidebar-edit-btn" onclick="event.stopPropagation();openEditClass('${c.id}')" title="수정" style="font-size:11px;color:var(--text3);cursor:pointer;padding:2px 4px;opacity:0.5">✎</span>
+    </div>`;
+  });
+  el.innerHTML = html;
+
+  const headerName = currentClass === 'all' ? '전체' : (db.classes.find(c=>c.id===currentClass)||{}).name||'';
+  document.getElementById('header-class-name').textContent = headerName ? headerName + '반' : '';
+}
+
+function onClassDragStart(e, idx) {
+  dragSrcIdx = idx;
+  e.dataTransfer.effectAllowed = 'move';
+}
+function onClassDragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
+function onClassDrop(e, targetIdx) {
+  e.preventDefault();
+  e.target.closest('.sidebar-item').style.borderTop = '';
+  if (dragSrcIdx === null || dragSrcIdx === targetIdx) return;
+  const item = db.classes.splice(dragSrcIdx, 1)[0];
+  db.classes.splice(targetIdx, 0, item);
+  dragSrcIdx = null;
+  saveDB();
+  renderSidebar();
+}
+
+function openEditClass(classId) {
+  const c = db.classes.find(c=>c.id===classId);
+  if (!c) return;
+  document.getElementById('edit-class-id').value = c.id;
+  document.getElementById('edit-class-name').value = c.name;
+
+  // Parse time: "월수 3시~4시 30분" → days=["월","수"], start="3시", end="4시 30분"
+  renderDayBtns('edit-class-day-btns', 'edit-class-time-preview');
+  const timeParts = (c.time||'').match(/^([월화수목금토일]+)\s*(\d+시(?:\s*30분)?)\s*~\s*(\d+시(?:\s*30분)?)$/);
+  if (timeParts) {
+    const days = timeParts[1].split('');
+    setDayBtns('edit-class-day-btns', days);
+    document.getElementById('edit-class-start-val').textContent = timeParts[2];
+    document.getElementById('edit-class-start-val').dataset.time = timeParts[2];
+    document.getElementById('edit-class-end-val').textContent = timeParts[3];
+    document.getElementById('edit-class-end-val').dataset.time = timeParts[3];
+  } else {
+    // legacy or no time - try to parse days from string
+    const dayChars = (c.time||'').match(/[월화수목금토일]/g) || [];
+    setDayBtns('edit-class-day-btns', dayChars);
+    document.getElementById('edit-class-start-val').textContent = '시작';
+    document.getElementById('edit-class-start-val').dataset.time = '';
+    document.getElementById('edit-class-end-val').textContent = '종료';
+    document.getElementById('edit-class-end-val').dataset.time = '';
+  }
+  initTimePicker('edit-class-start-dd','edit-class-start-val','edit-class-time-preview');
+  initTimePicker('edit-class-end-dd','edit-class-end-val','edit-class-time-preview');
+  updateTimePreview('edit-class-time-preview');
+  editClassColor = c.color;
+  renderColorPicker('edit-class-color-picker', c.color);
+  openModal('modal-edit-class');
+}
+
+let editClassColor = '#2D5A3D';
+
+function selectEditClassColor(el, color) {
+  editClassColor = color;
+  document.querySelectorAll('#edit-class-color-picker .color-opt').forEach(e=>e.style.border='2px solid transparent');
+  el.style.border = '2px solid var(--text)';
+}
+
+function saveEditClass() {
+  const id = document.getElementById('edit-class-id').value;
+  const c = db.classes.find(c=>c.id===id);
+  if (!c) return;
+  c.name = document.getElementById('edit-class-name').value.trim() || c.name;
+  c.time = buildTimeString('edit-class-day-btns','edit-class-start-val','edit-class-end-val');
+  c.color = editClassColor;
+  saveDB();
+  renderSidebar();
+  renderPage();
+  closeModal('modal-edit-class');
+}
+
+function deleteClass(id) {
+  const c = db.classes.find(c=>c.id===id);
+  if (!c) return;
+  const students = db.students.filter(s=>s.classId===id);
+  if (!confirm(`"${c.name}" 반을 삭제하시겠습니까?${students.length?`\n(소속 학생 ${students.length}명은 유지됩니다)`:''}`)) return;
+  db.classes = db.classes.filter(c=>c.id!==id);
+  if (currentClass === id) currentClass = 'all';
+  saveDB();
+  renderSidebar();
+  renderPage();
+  closeModal('modal-edit-class');
+}
+
+function hexToLight(hex) {
+  // returns a very light version of hex for sidebar bg
+  return hex + '15';
+}
+
+function setClass(id, el) {
+  currentClass = id;
+  renderSidebar();
+  renderPage();
+}
+
+function setMenu(menu, el) {
+  currentMenu = menu;
+  document.querySelectorAll('.sidebar-item').forEach(e => {
+    if (e.onclick && e.onclick.toString().includes('setMenu')) e.classList.remove('active');
+  });
+  el.classList.add('active');
+  renderPage();
+}
+
+// ===== PAGE RENDER =====
+function renderPage() {
+  ['overview','students','homework','experiments','briefing'].forEach(p => {
+    document.getElementById('page-'+p).style.display = 'none';
+  });
+  document.getElementById('page-'+currentMenu).style.display = 'block';
+
+  if (currentMenu === 'overview') renderOverview();
+  else if (currentMenu === 'students') renderStudents();
+  else if (currentMenu === 'homework') renderHomework();
+  else if (currentMenu === 'experiments') renderExperiments();
+  else if (currentMenu === 'briefing') renderBriefing();
+}
+
+// ===== OVERVIEW =====
+function renderOverview() {
+  const students = getFilteredStudents();
+  const hw = getFilteredHW();
+  const exp = getFilteredExp();
+  const avgHW = hw.length ? (hw.reduce((a,b)=>a+b.stars,0)/hw.length).toFixed(1) : '—';
+
+  document.getElementById('overview-subtitle').textContent =
+    currentClass === 'all' ? `전체 ${db.classes.length}개 반` :
+    (db.classes.find(c=>c.id===currentClass)||{}).name + '반';
+
+  document.getElementById('overview-metrics').innerHTML = `
+    <div class="metric"><div class="metric-val">${students.length}</div><div class="metric-label">담당 학생</div></div>
+    <div class="metric"><div class="metric-val">${hw.length}</div><div class="metric-label">숙제 기록</div></div>
+    <div class="metric"><div class="metric-val">${avgHW}</div><div class="metric-label">평균 퀄리티 ★</div></div>
+    <div class="metric"><div class="metric-val">${exp.length}</div><div class="metric-label">실험 기록</div></div>
+  `;
+
+  const classesToShow = currentClass === 'all' ? db.classes : db.classes.filter(c=>c.id===currentClass);
+  let html = '';
+  classesToShow.forEach(c => {
+    const cs = db.students.filter(s=>s.classId===c.id);
+    const chw = db.homework.filter(h=>cs.some(s=>s.name===h.student));
+    const avg = chw.length ? (chw.reduce((a,b)=>a+b.stars,0)/chw.length).toFixed(1) : '—';
+    html += `<div style="padding:12px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px">
+      <div style="width:10px;height:10px;border-radius:50%;background:${c.color};flex-shrink:0"></div>
+      <div style="flex:1">
+        <span style="font-weight:500">${c.name}</span>
+        <span style="color:var(--text3);font-size:12px;margin-left:6px">${c.time||''}</span>
+      </div>
+      <span class="badge badge-gray">${cs.length}명</span>
+      <span class="badge ${avg>=4?'badge-green':avg>=3?'badge-gold':'badge-red'}">${avg!=='—'?'★'+avg:'기록없음'}</span>
+      <button class="btn btn-sm" onclick="setClass('${c.id}',null);setMenuDirect('students')">보기</button>
+    </div>`;
+  });
+  document.getElementById('overview-classes').innerHTML = html || '<div class="empty"><div class="empty-icon">📚</div><p>반을 추가해보세요</p></div>';
+}
+
+function setMenuDirect(menu) {
+  currentMenu = menu;
+  document.querySelectorAll('.sidebar-item').forEach(el => {
+    if (el.onclick && el.onclick.toString().includes('setMenu')) {
+      el.classList.remove('active');
+      if (el.onclick.toString().includes("'"+menu+"'")) el.classList.add('active');
+    }
+  });
+  renderPage();
+}
+
+// ===== HEADER & MOBILE MENU =====
+function goHome() {
+  currentMenu = 'overview';
+  currentClass = 'all';
+  renderSidebar();
+  renderPage();
+  renderMobileMenu();
+}
+
+function toggleMobileMenu() {
+  const m = document.getElementById('mobile-menu');
+  m.classList.toggle('open');
+  if (m.classList.contains('open')) renderMobileMenu();
+}
+
+function renderMobileMenu() {
+  const el = document.getElementById('mobile-class-list');
+  if (!el) return;
+  let html = `<div class="mm-item ${currentClass==='all'?'active':''}" onclick="mobileClassNav('all')">전체</div>`;
+  db.classes.forEach(c => {
+    html += `<div class="mm-item ${currentClass===c.id?'active':''}" onclick="mobileClassNav('${c.id}')">
+      <span style="width:8px;height:8px;border-radius:50%;background:${c.color}"></span>${c.name}
+    </div>`;
+  });
+  el.innerHTML = html;
+  // update menu items active state
+  document.querySelectorAll('#mobile-menu .mm-item').forEach(el => {
+    if (el.onclick && el.onclick.toString().includes('mobileNav')) {
+      const menu = el.onclick.toString().match(/mobileNav\('(\w+)'\)/);
+      if (menu) el.classList.toggle('active', menu[1]===currentMenu);
+    }
+  });
+}
+
+function mobileNav(menu) {
+  currentMenu = menu;
+  renderSidebar();
+  renderPage();
+  document.getElementById('mobile-menu').classList.remove('open');
+  renderMobileMenu();
+}
+
+function mobileClassNav(classId) {
+  currentClass = classId;
+  renderSidebar();
+  renderPage();
+  document.getElementById('mobile-menu').classList.remove('open');
+  renderMobileMenu();
+}
+
+// ===== STUDENTS =====
+function renderStudents() {
+  const students = getFilteredStudents();
+  const cls = db.classes.find(c=>c.id===currentClass);
+  document.getElementById('students-subtitle').textContent =
+    currentClass === 'all' ? `전체 ${students.length}명` : `${cls?.name||''}반 · ${students.length}명`;
+
+  if (!students.length) {
+    document.getElementById('students-content').innerHTML =
+      '<div class="empty"><div class="empty-icon">👩‍🎓</div><p>학생을 추가해보세요</p></div>';
+    return;
+  }
+
+  const colors = ['#2D5A3D','#C4562A','#185FA5','#7B3FA0','#B8860B','#6B6560'];
+  let html = '<div class="student-cards-grid">';
+  students.forEach((s, i) => {
+    const color = db.classes.find(c=>c.id===s.classId)?.color || colors[i%6];
+    const avg = getAvgHW(s.name);
+    const cls = db.classes.find(c=>c.id===s.classId);
+    html += `<div class="student-card" onclick="showStudentDetail('${s.id}')">
+      <div class="avatar" style="background:${color}20;color:${color}">${s.name.slice(0,2)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="student-name">${s.name}</span>
+          <span class="badge badge-gray" style="font-size:10px">${s.grade}</span>
+        </div>
+        <div class="student-meta">${cls?'['+cls.name+'] ':''} ${s.trait?s.trait.slice(0,24)+'…':''}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        ${avg ? `<div style="font-size:13px;font-weight:600;color:${avg>=4?'var(--accent)':avg>=3?'var(--gold)':'var(--accent2)'}">★${avg.toFixed(1)}</div>` : '<div style="font-size:11px;color:var(--text3)">기록없음</div>'}
+      </div>
+    </div>`;
+  });
+  html += '</div>';
+  document.getElementById('students-content').innerHTML = html;
+}
+
+function getAvgHW(name) {
+  const rows = db.homework.filter(h=>h.student===name);
+  if (!rows.length) return 0;
+  return rows.reduce((a,b)=>a+b.stars,0)/rows.length;
+}
+
+function showStudentDetail(id) {
+  const s = db.students.find(s=>s.id===id);
+  if (!s) return;
+  const cls = db.classes.find(c=>c.id===s.classId);
+  const color = cls?.color || '#2D5A3D';
+  const hwRows = db.homework.filter(h=>h.student===s.name).slice(-5).reverse();
+  const expRows = db.experiments.filter(e=>e.student===s.name).slice(-3).reverse();
+  const avg = getAvgHW(s.name);
+
+  document.getElementById('detail-name').textContent = s.name;
+  const gradeOptions = ['초1','초2','초3','초4','초5','초6','중1','중2','중3'].map(g=>`<option${g===s.grade?' selected':''}>${g}</option>`).join('');
+  const classOptions = db.classes.map(c=>`<option value="${c.id}"${c.id===s.classId?' selected':''}>${c.name}</option>`).join('');
+  const allHW = db.homework.filter(h=>h.student===s.name);
+  const allExp = db.experiments.filter(e=>e.student===s.name);
+  const allWrongs = allHW.flatMap(h=>h.wrongs||[]);
+  const tc = countTypes(allWrongs);
+  const goodExp = allExp.filter(e=>e.effect==='good');
+  const badExp = allExp.filter(e=>e.effect==='bad');
+
+  // === 1. 성향 프로파일 자동 생성 ===
+  const weakest = tc.eng>=tc.ord&&tc.eng>=tc.kor?'영작':tc.ord>=tc.kor?'어순':'해석';
+  const avgStars = allHW.length ? (allHW.reduce((a,h)=>a+h.stars,0)/allHW.length) : 0;
+  let profileApproach = '';
+  if (s.note && s.note.includes('친밀감')) profileApproach = '친밀한 분위기에서 접근, 칭찬 위주';
+  else if (s.note && s.note.includes('다그')) profileApproach = '부드럽게 격려하는 방식, 압박 주의';
+  else if (avgStars >= 4) profileApproach = '자율성을 존중하면서 도전적 과제 제시';
+  else if (avgStars >= 2.5) profileApproach = '구조화된 반복 학습 + 작은 성공 경험 쌓기';
+  else profileApproach = '기초부터 차근차근, 심리적 안정감 우선';
+
+  let profileSummary = '';
+  if (s.trait) profileSummary = s.trait;
+  else if (allHW.length) profileSummary = `숙제 평균 ★${avgStars.toFixed(1)}, ${allWrongs.length}개 오답 기록`;
+  else profileSummary = '아직 데이터가 부족합니다. 기록이 쌓이면 자동으로 분석됩니다.';
+
+  // === 2. 이번 주 추천 ===
+  const recs = [];
+  if (tc[weakest==='영작'?'eng':weakest==='어순'?'ord':'kor'] > 0) {
+    recs.push({ action: `${weakest} 취약 문장 3개 골라 반복 연습시키기`, reason: `최근 오답 중 ${weakest} 유형이 가장 많음 (${tc[weakest==='영작'?'eng':weakest==='어순'?'ord':'kor']}건)` });
+  }
+  if (goodExp.length) {
+    const last = goodExp[goodExp.length-1];
+    recs.push({ action: `"${last.method}" 다시 시도하기`, reason: `이전에 효과있었던 방법 (${last.date})` });
+  }
+  if (s.talk) {
+    const topics = s.talk.split(',').map(t=>t.trim());
+    recs.push({ action: `${topics[0]} 이야기로 수업 전 스몰톡`, reason: `라포 형성용 — 학생 관심사` });
+  }
+  if (avgStars < 3 && allHW.length >= 2) {
+    recs.push({ action: '숙제 양 줄이고 질 높이기', reason: `숙제 평균 ★${avgStars.toFixed(1)}로 낮음, 부담 줄여야 동기 유지` });
+  }
+  if (!recs.length) recs.push({ action: '학생 관찰 기록 쌓기', reason: '데이터가 쌓이면 더 정확한 추천이 가능합니다' });
+
+  // === 3. 코칭 전략 카드 ===
+  let strategyTable = '';
+  if (goodExp.length || badExp.length) {
+    const goodRows = goodExp.slice(-3).map(e=>`<tr><td style="color:var(--accent)">✓</td><td>${e.method}</td><td style="font-size:11px;color:var(--text2)">${e.result}</td></tr>`).join('');
+    const badRows = badExp.slice(-3).map(e=>`<tr><td style="color:var(--accent2)">✗</td><td>${e.method}</td><td style="font-size:11px;color:var(--text2)">${e.result}</td></tr>`).join('');
+    strategyTable = `<table class="coach-table">
+      <thead><tr><th></th><th>방법</th><th>결과</th></tr></thead>
+      <tbody>${goodRows}${badRows}</tbody>
+    </table>`;
+  } else {
+    strategyTable = '<p style="font-size:12px;color:var(--text3)">실험 기록이 쌓이면 자동으로 정리됩니다.</p>';
+  }
+
+  document.getElementById('modal-detail-body').innerHTML = `
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px">
+      <div class="avatar" style="width:52px;height:52px;font-size:18px;background:${color}20;color:${color}">${s.name.slice(0,2)}</div>
+      <div style="flex:1">
+        <div style="font-size:15px;font-weight:600">${s.name}</div>
+        <div style="font-size:12px;color:var(--text2)">${s.grade} · ${cls?cls.name+'반':''} ${avg?`· ★${avg.toFixed(1)}`:''}</div>
+      </div>
+      <button class="btn btn-sm" onclick="toggleStudentEdit('${s.id}')" style="flex-shrink:0">정보 수정</button>
+    </div>
+    <div id="student-edit-form-${s.id}" style="display:none;background:var(--surface2);border-radius:var(--radius-sm);padding:14px;margin-bottom:14px">
+      <div class="field-row">
+        <div class="field"><label>이름</label><input id="edit-name-${s.id}" value="${s.name}"></div>
+        <div class="field"><label>학년</label><select id="edit-grade-${s.id}">${gradeOptions}</select></div>
+      </div>
+      <div class="field"><label>반</label><select id="edit-class-${s.id}">${classOptions}</select></div>
+      <div class="field"><label>성향 / 관찰 내용</label><textarea id="edit-trait-${s.id}">${s.trait||''}</textarea></div>
+      <div class="field"><label>주의사항</label><textarea id="edit-note-${s.id}">${s.note||''}</textarea></div>
+      <div class="field"><label>스몰톡 소재</label><input id="edit-talk-${s.id}" value="${s.talk||''}"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px">
+        <button class="btn" onclick="toggleStudentEdit('${s.id}')">취소</button>
+        <button class="btn btn-primary" onclick="saveStudentEdit('${s.id}')">저장</button>
+      </div>
+    </div>
+
+    <!-- 성향 프로파일 -->
+    <div class="coach-section" style="background:var(--accent-light);border:1px solid #c5dac9">
+      <div class="coach-header open" onclick="this.classList.toggle('open');this.nextElementSibling.style.display=this.classList.contains('open')?'block':'none'" style="color:var(--accent)">
+        <span class="ch-arrow">▶</span> 🧠 AI 성향 프로파일
+      </div>
+      <div class="coach-body" style="background:white">
+        <div class="coach-card" style="border-left-color:var(--accent);background:var(--accent-light)">
+          <div style="font-size:11px;font-weight:600;color:var(--accent);margin-bottom:4px">성향 요약</div>
+          <div>${profileSummary}</div>
+        </div>
+        <div class="coach-card" style="border-left-color:#185FA5;background:#EAF1FB">
+          <div style="font-size:11px;font-weight:600;color:#185FA5;margin-bottom:4px">추천 접근법</div>
+          <div>${profileApproach}</div>
+        </div>
+        ${s.note?`<div class="coach-card" style="border-left-color:var(--accent2);background:var(--accent2-light)">
+          <div style="font-size:11px;font-weight:600;color:var(--accent2);margin-bottom:4px">주의사항</div>
+          <div>${s.note}</div>
+        </div>`:''}
+        ${allWrongs.length?`<div class="coach-card" style="border-left-color:var(--gold);background:var(--gold-light)">
+          <div style="font-size:11px;font-weight:600;color:var(--gold);margin-bottom:4px">학습 취약점</div>
+          <div>주요 취약 유형: <b>${weakest}</b> (${tc[weakest==='영작'?'eng':weakest==='어순'?'ord':'kor']}건) · 총 오답 ${allWrongs.length}개</div>
+        </div>`:''}
+        ${s.talk?`<div style="margin-top:6px;font-size:11px;color:var(--text2)">💬 스몰톡: ${s.talk.split(',').map(t=>`<span class="tag">${t.trim()}</span>`).join('')}</div>`:''}
+      </div>
+    </div>
+
+    <!-- 이번 주 추천 -->
+    <div class="coach-section" style="background:var(--gold-light);border:1px solid #e8d8a0">
+      <div class="coach-header open" onclick="this.classList.toggle('open');this.nextElementSibling.style.display=this.classList.contains('open')?'block':'none'" style="color:var(--gold)">
+        <span class="ch-arrow">▶</span> 💡 이번 주 시도해볼 것
+      </div>
+      <div class="coach-body" style="background:white">
+        ${recs.slice(0,3).map((r,i) => `<div class="coach-card" style="border-left-color:var(--gold);background:var(--gold-light)">
+          <div style="display:flex;align-items:flex-start;gap:8px">
+            <span style="background:var(--gold);color:white;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${i+1}</span>
+            <div>
+              <div style="font-weight:600;margin-bottom:2px">${r.action}</div>
+              <div style="font-size:11px;color:var(--text2)">근거: ${r.reason}</div>
+            </div>
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>
+
+    <!-- 코칭 전략 카드 -->
+    <div class="coach-section" style="background:#EAF1FB;border:1px solid #b8d4f0">
+      <div class="coach-header" onclick="this.classList.toggle('open');this.nextElementSibling.style.display=this.classList.contains('open')?'block':'none'" style="color:#185FA5">
+        <span class="ch-arrow">▶</span> 📋 코칭 전략 (먹히는 것 / 안 먹히는 것)
+      </div>
+      <div class="coach-body" style="display:none;background:white">
+        ${strategyTable}
+        ${goodExp.length||badExp.length?`<div style="margin-top:8px;font-size:11px;color:var(--text2)">
+          총 ${allExp.length}회 실험 · <span style="color:var(--accent)">효과 ${goodExp.length}</span> · <span style="color:var(--accent2)">비효과 ${badExp.length}</span>
+          ${allExp.length?` · 성공률 ${Math.round(goodExp.length/allExp.length*100)}%`:''}
+        </div>`:''}
+      </div>
+    </div>
+
+    <!-- 상황별 즉각 조언 -->
+    <div class="coach-section" style="background:var(--accent2-light);border:1px solid #f0cbb8">
+      <div class="coach-header open" onclick="this.classList.toggle('open');this.nextElementSibling.style.display=this.classList.contains('open')?'block':'none'" style="color:var(--accent2)">
+        <span class="ch-arrow">▶</span> 🆘 상황별 즉각 조언
+      </div>
+      <div class="coach-body" style="background:white">
+        <p style="font-size:11px;color:var(--text3);margin-bottom:6px">오늘 학생에게 있었던 상황을 입력하면 즉시 조언해드려요</p>
+        <div class="coach-input-wrap">
+          <input id="coach-ask-${s.id}" placeholder="예: 오늘 ${s.name}가 수업 중 자꾸 멍때리는데..." />
+          <button onclick="askCoachAdvice('${s.id}')">조언받기</button>
+        </div>
+        <div id="coach-answer-${s.id}" style="margin-top:8px"></div>
+      </div>
+    </div>
+
+    <!-- 보충 기록 -->
+    ${(()=>{
+      if (!db.supplements) db.supplements = [];
+      const sups = db.supplements.filter(sp=>sp.student===s.name);
+      const now = new Date();
+      const thisMonth = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+      const monthly = sups.filter(sp=>sp.date&&sp.date.startsWith(thisMonth));
+      const stays = monthly.filter(sp=>sp.type==='스테이');
+      const earlyArr = monthly.filter(sp=>sp.type==='조기등원');
+      const stayMins = stays.reduce((a,sp)=>a+(sp.minutes||0),0);
+      const earlyMins = earlyArr.reduce((a,sp)=>a+(sp.minutes||0),0);
+      // 미완료 원인
+      const incompleteCounts = {};
+      sups.filter(sp=>!sp.done).forEach(sp=>{ if(sp.incomplete) incompleteCounts[sp.incomplete]=(incompleteCounts[sp.incomplete]||0)+1; });
+      const topCause = Object.entries(incompleteCounts).sort((a,b)=>b[1]-a[1])[0];
+
+      const recentSups = sups.slice(-5).reverse();
+      const supRows = recentSups.map(sp=>`<div class="trend-row" style="font-size:12px">
+        <span style="color:var(--text3)">${sp.date||''}</span>
+        <span class="badge ${sp.type==='스테이'?'badge-blue':'badge-gold'}" style="font-size:10px">${sp.type||''}</span>
+        <span>${sp.startTime||''}~${sp.endTime||''}</span>
+        <span class="badge badge-gray" style="font-size:10px">${sp.incomplete||''}</span>
+        <span>${sp.done?'✅':'⬜'}</span>
+      </div>`).join('');
+
+      return `<div class="coach-section" style="background:#F3E8FF;border:1px solid #d4b8f0">
+        <div class="coach-header" onclick="this.classList.toggle('open');this.nextElementSibling.style.display=this.classList.contains('open')?'block':'none'" style="color:#6A1B9A">
+          <span class="ch-arrow">▶</span> 📝 보충 기록
+          <span class="badge badge-gray" style="font-size:10px;margin-left:auto">${sups.length}건</span>
+        </div>
+        <div class="coach-body" style="display:none;background:white">
+          <!-- 이번 달 통계 -->
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+            <div style="text-align:center;padding:8px;background:#F3E8FF;border-radius:6px">
+              <div style="font-size:16px;font-weight:700;color:#6A1B9A">${stays.length}회</div>
+              <div style="font-size:10px;color:var(--text2)">이번 달 스테이</div>
+              <div style="font-size:10px;color:var(--text3)">${Math.floor(stayMins/60)}시간 ${stayMins%60}분</div>
+            </div>
+            <div style="text-align:center;padding:8px;background:var(--gold-light);border-radius:6px">
+              <div style="font-size:16px;font-weight:700;color:var(--gold)">${earlyArr.length}회</div>
+              <div style="font-size:10px;color:var(--text2)">이번 달 조기등원</div>
+              <div style="font-size:10px;color:var(--text3)">${Math.floor(earlyMins/60)}시간 ${earlyMins%60}분</div>
+            </div>
+            <div style="text-align:center;padding:8px;background:var(--accent2-light);border-radius:6px">
+              <div style="font-size:16px;font-weight:700;color:var(--accent2)">${topCause?topCause[0]:'—'}</div>
+              <div style="font-size:10px;color:var(--text2)">주요 미완료 원인</div>
+              <div style="font-size:10px;color:var(--text3)">${topCause?topCause[1]+'회':'없음'}</div>
+            </div>
+          </div>
+          <!-- 입력 폼 -->
+          <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:10px;margin-bottom:10px">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px">
+              <div class="wrong-field"><label>날짜</label><input type="date" id="sup-date-${s.id}" value="${now.toISOString().split('T')[0]}" /></div>
+              <div class="wrong-field">
+                <label>유형</label>
+                <div style="display:flex;gap:6px">
+                  <span class="type-chip on-ord" id="sup-type-stay-${s.id}" onclick="pickSupType('${s.id}','스테이')" style="flex:1;text-align:center">스테이</span>
+                  <span class="type-chip" id="sup-type-early-${s.id}" onclick="pickSupType('${s.id}','조기등원')" style="flex:1;text-align:center">조기 등원</span>
+                </div>
+              </div>
+            </div>
+            <div class="wrong-field">
+              <label>시간</label>
+              <div style="display:flex;align-items:center;gap:6px">
+                <div class="time-picker-wrap"><span class="time-val" id="sup-start-val-${s.id}" onclick="toggleSupTime(this,'sup-start-dd-${s.id}')">시작</span><div class="time-dropdown" id="sup-start-dd-${s.id}"></div></div>
+                <span style="color:var(--text3)">~</span>
+                <div class="time-picker-wrap"><span class="time-val" id="sup-end-val-${s.id}" onclick="toggleSupTime(this,'sup-end-dd-${s.id}')">종료</span><div class="time-dropdown" id="sup-end-dd-${s.id}"></div></div>
+              </div>
+            </div>
+            <div class="wrong-field">
+              <label>미완료 항목</label>
+              <div style="display:flex;gap:6px">
+                <span class="type-chip" id="sup-inc-online-${s.id}" onclick="pickSupInc('${s.id}','온라인')" style="flex:1;text-align:center">온라인</span>
+                <span class="type-chip" id="sup-inc-havru-${s.id}" onclick="pickSupInc('${s.id}','하브루타')" style="flex:1;text-align:center">하브루타</span>
+                <span class="type-chip" id="sup-inc-both-${s.id}" onclick="pickSupInc('${s.id}','둘다')" style="flex:1;text-align:center">둘다</span>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+              <label style="font-size:11px;display:flex;align-items:center;gap:4px;cursor:pointer">
+                <input type="checkbox" id="sup-done-${s.id}" /> 완료
+              </label>
+              <input id="sup-memo-${s.id}" placeholder="메모" style="flex:1;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px" />
+            </div>
+            <button class="btn btn-sm btn-primary" onclick="saveSupplement('${s.id}','${s.name}')" style="width:100%">보충 기록 저장</button>
+          </div>
+          <!-- 최근 기록 -->
+          ${supRows||'<p style="font-size:12px;color:var(--text3)">기록 없음</p>'}
+        </div>
+      </div>`;
+    })()}
+
+    <div class="divider"></div>
+
+    <!-- 기존: 숙제 기록 -->
+    <div class="detail-section">
+      <h4>최근 숙제 기록</h4>
+      ${hwRows.length ? hwRows.map(h=>`
+        <div class="trend-row">
+          <span style="color:var(--text3)">${h.date}</span>
+          <span>${'★'.repeat(h.stars)}${'☆'.repeat(5-h.stars)}</span>
+          ${h.read?`<span class="badge ${Number(h.read)>=20?'badge-green':Number(h.read)>=10?'badge-gold':'badge-red'}">${h.read}회</span>`:'<span class="badge badge-gray">—</span>'}
+          ${h.wrongs&&h.wrongs.length?`<span class="badge badge-red" style="cursor:pointer" onclick="showWrongDetail('${h.id}')">${h.wrongs.length}문제</span>`:''}
+          <span style="color:var(--text2);font-size:12px">${h.memo?h.memo.slice(0,20):''}</span>
+        </div>`).join('') : '<p style="font-size:12px;color:var(--text3)">기록 없음</p>'}
+    </div>
+    ${(()=>{
+      if(!allWrongs.length) return '';
+      const t=allWrongs.length;
+      const areas=[{n:'영작',c:tc.eng,color:'var(--accent2)'},{n:'어순',c:tc.ord,color:'var(--gold)'},{n:'해석',c:tc.kor,color:'#185FA5'}].sort((a,b)=>b.c-a.c);
+      return `<div class="weakness-box">
+        <h5>취약점 분석 (${t}문제)</h5>
+        ${areas.map(a=>`<div class="weakness-bar-wrap"><span class="weakness-bar-label">${a.n}</span><div class="weakness-bar-bg"><div class="weakness-bar-fill" style="width:${Math.round(a.c/t*100)}%;background:${a.color}"></div></div><span class="weakness-bar-count">${a.c}</span></div>`).join('')}
+        <p style="font-size:12px;margin-top:6px;color:var(--accent2)">주요 취약: <b>${areas[0].n}</b></p>
+      </div>`;
+    })()}
+    <div class="detail-section">
+      <h4>최근 실험</h4>
+      ${expRows.length ? expRows.map(e=>`
+        <div class="exp-item ${e.effect}" style="margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+            <span style="font-size:12px;color:var(--text3)">${e.date}</span>
+            <span class="badge ${e.effect==='good'?'badge-green':e.effect==='bad'?'badge-red':'badge-gold'}">${e.effect==='good'?'효과있음':e.effect==='bad'?'효과없음':'보통'}</span>
+          </div>
+          <p style="font-size:13px">${e.method}</p>
+          <p style="font-size:12px;color:var(--text2);margin-top:4px">결과: ${e.result}</p>
+        </div>`).join('') : '<p style="font-size:12px;color:var(--text3)">기록 없음</p>'}
+    </div>
+  `;
+  openModal('modal-student-detail');
+}
+
+// ===== HOMEWORK =====
+function renderHomework() {
+  const hw = getFilteredHW().slice().reverse();
+  const cls = db.classes.find(c=>c.id===currentClass);
+  document.getElementById('homework-subtitle').textContent =
+    currentClass==='all' ? `전체 ${hw.length}건` : `${cls?.name||''}반 · ${hw.length}건`;
+
+  if (!hw.length) {
+    document.getElementById('hw-table-body').innerHTML =
+      '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text3)">기록이 없어요</td></tr>';
+    document.getElementById('hw-weakness-analysis').innerHTML = '';
+    return;
+  }
+  document.getElementById('hw-table-body').innerHTML = hw.slice(0,50).map(h => {
+    const s = db.students.find(s=>s.name===h.student);
+    const cls = s ? db.classes.find(c=>c.id===s.classId) : null;
+    const wrongCount = (h.wrongs && h.wrongs.length) ? h.wrongs.length : 0;
+    return `<tr>
+      <td style="color:var(--text2)">${h.date}</td>
+      <td><b style="font-weight:500">${h.student}</b></td>
+      <td>${cls?`<span class="badge" style="background:${cls.color}20;color:${cls.color}">${cls.name}</span>`:''}</td>
+      <td><span style="color:${h.stars>=4?'var(--accent)':h.stars>=3?'var(--gold)':'var(--accent2)'}">${'★'.repeat(h.stars)}${'☆'.repeat(5-h.stars)}</span></td>
+      <td>${h.read ? `<span class="badge ${Number(h.read)>=20?'badge-green':Number(h.read)>=10?'badge-gold':'badge-red'}">${h.read}회</span>` : '<span style="color:var(--text3)">—</span>'}</td>
+      <td>${wrongCount ? `<span class="badge badge-red" style="cursor:pointer" onclick="showWrongDetail('${h.id}')">${wrongCount}문제</span>` : '<span style="color:var(--text3)">—</span>'}</td>
+      <td>${h.aiAnalysis ? `<span class="badge badge-blue" style="cursor:pointer;font-size:10px" onclick="showAIAnalysis('${h.id}')">분석보기</span>` : '<span style="color:var(--text3)">—</span>'}</td>
+      <td style="color:var(--text2);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${h.memo||'—'}</td>
+      <td><button class="btn btn-sm" onclick="openEditHW('${h.id}')" style="white-space:nowrap">수정</button></td>
+    </tr>`;
+  }).join('');
+  renderWeaknessAnalysis(hw);
+}
+
+// ===== EXPERIMENTS =====
+function renderExperiments() {
+  const exps = getFilteredExp().slice().reverse();
+  const cls = db.classes.find(c=>c.id===currentClass);
+  document.getElementById('experiments-subtitle').textContent =
+    currentClass==='all' ? `전체 ${exps.length}건` : `${cls?.name||''}반 · ${exps.length}건`;
+
+  if (!exps.length) {
+    document.getElementById('exp-content').innerHTML =
+      '<div class="empty"><div class="empty-icon">🧪</div><p>실험 기록을 추가해보세요</p></div>';
+    return;
+  }
+  document.getElementById('exp-content').innerHTML = exps.map(e => `
+    <div class="exp-item ${e.effect}" style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div style="display:flex;gap:8px;align-items:center">
+          <b style="font-weight:500">${e.student}</b>
+          <span class="badge badge-blue" style="font-size:11px">${e.date}</span>
+        </div>
+        <span class="badge ${e.effect==='good'?'badge-green':e.effect==='bad'?'badge-red':'badge-gold'}">${e.effect==='good'?'효과있음':e.effect==='bad'?'효과없음':'보통'}</span>
+      </div>
+      <p style="font-size:13px;margin-bottom:4px"><span style="color:var(--text3);font-size:11px">방법</span> ${e.method}</p>
+      <p style="font-size:13px;margin-bottom:4px"><span style="color:var(--text3);font-size:11px">결과</span> ${e.result}</p>
+      ${e.next?`<p style="font-size:12px;color:var(--accent)">→ 다음: ${e.next}</p>`:''}
+    </div>
+  `).join('');
+}
+
+// ===== BRIEFING =====
+function renderBriefing() {
+  const students = getFilteredStudents();
+  const hw = getFilteredHW();
+  const exp = getFilteredExp();
+  const good = exp.filter(e=>e.effect==='good');
+
+  document.getElementById('briefing-metrics').innerHTML = `
+    <div class="metric"><div class="metric-val">${students.length}</div><div class="metric-label">담당 학생</div></div>
+    <div class="metric"><div class="metric-val">${exp.filter(e=>e.effect==='good').length}</div><div class="metric-label">효과있는 실험</div></div>
+    <div class="metric"><div class="metric-val">${hw.length ? (hw.reduce((a,b)=>a+b.stars,0)/hw.length).toFixed(1) : '—'}</div><div class="metric-label">평균 퀄리티 ★</div></div>
+  `;
+
+  // 실험 요약
+  let expHtml = '';
+  if (good.length) {
+    expHtml = good.slice(-4).map(e=>`<div class="summary-method">✓ <b>${e.student}</b> — ${e.method}</div>`).join('');
+  } else {
+    expHtml = '<p style="font-size:13px;color:var(--text3)">아직 효과있는 실험 기록이 없어요</p>';
+  }
+  document.getElementById('briefing-exp-summary').innerHTML = expHtml;
+
+  // 숙제 추이
+  let trendHtml = '';
+  students.forEach(s => {
+    const rows = db.homework.filter(h=>h.student===s.name);
+    if (!rows.length) return;
+    const avg = (rows.reduce((a,b)=>a+b.stars,0)/rows.length).toFixed(1);
+    const last = rows[rows.length-1].stars;
+    const prev = rows.length > 1 ? rows[rows.length-2].stars : null;
+    const trend = prev !== null ? (last > prev ? '↑' : last < prev ? '↓' : '→') : '';
+    const trendColor = trend==='↑'?'var(--accent)':trend==='↓'?'var(--accent2)':'var(--text2)';
+    trendHtml += `<div class="trend-row">
+      <span>${s.name}</span>
+      <span style="color:var(--text2)">평균 ★${avg}</span>
+      <span style="color:${trendColor};font-weight:600">${trend}</span>
+    </div>`;
+  });
+  document.getElementById('briefing-hw-trend').innerHTML = trendHtml || '<p style="font-size:13px;color:var(--text3)">기록 없음</p>';
+}
+
+async function generateBriefingScript() {
+  const students = getFilteredStudents();
+  const exp = getFilteredExp();
+  const hw = getFilteredHW();
+  const good = exp.filter(e=>e.effect==='good');
+
+  const el = document.getElementById('briefing-script-result');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div> 브리핑 스크립트 생성 중...</div>';
+
+  const summary = `
+담당 학생: ${students.map(s=>s.name).join(', ')}
+숙제 기록 수: ${hw.length}건
+효과있는 실험: ${good.map(e=>`${e.student}(${e.method}→${e.result})`).join('; ')}
+학생별 주의사항: ${students.map(s=>s.name+(s.note?': '+s.note:'')).join(' / ')}
+  `;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{
+          role: 'user',
+          content: `당신은 영어 학원 LT(리딩&테스트) 강사입니다. 상사에게 아이들 지도 현황을 브리핑해야 합니다. 아래 데이터를 바탕으로 자연스럽고 구체적인 한국어 브리핑 스크립트를 작성해주세요. 원인분석 → 시도한 방법 → 결과 → 앞으로의 계획 순서로 작성해주세요.
+
+데이터:
+${summary}`
+        }]
+      })
+    });
+    const data = await res.json();
+    const text = data.content?.map(c=>c.text||'').join('') || '생성 실패';
+    el.innerHTML = `<div class="ai-result">${text}</div>`;
+  } catch(e) {
+    el.innerHTML = `<div class="ai-result" style="background:var(--accent2-light)">API 연결 오류. 직접 입력해서 사용해주세요.</div>`;
+  }
+}
+
+// ===== COUNSELING ANALYSIS =====
+async function analyzeCounseling() {
+  const name = document.getElementById('counsel-name').value.trim();
+  const text = document.getElementById('counsel-text').value.trim();
+  if (!text) return;
+
+  const el = document.getElementById('counsel-result');
+  el.innerHTML = '<div class="loading" style="margin-top:12px"><div class="spinner"></div> 분석 중...</div>';
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{
+          role: 'user',
+          content: `당신은 영어 학원 코칭 전문가입니다. 아래 상담 일지를 읽고 다음 항목을 한국어로 정리해주세요:
+
+1. 학생 성향 요약 (3줄 이내)
+2. 학습 패턴 및 문제점
+3. 코칭할 때 주의사항
+4. 효과적인 접근 방법 제안
+5. 스몰톡/라포 형성 힌트
+
+학생명: ${name || '미기재'}
+상담 내용:
+${text}`
+        }]
+      })
+    });
+    const data = await res.json();
+    const result = data.content?.map(c=>c.text||'').join('') || '분석 실패';
+    el.innerHTML = `<div class="ai-result" style="margin-top:12px">${result}</div>`;
+  } catch(e) {
+    el.innerHTML = `<div class="ai-result" style="margin-top:12px;background:var(--accent2-light)">API 오류가 발생했습니다.</div>`;
+  }
+}
+
+// ===== HELPERS =====
+function getFilteredStudents() {
+  if (currentClass === 'all') return db.students;
+  return db.students.filter(s=>s.classId===currentClass);
+}
+function getFilteredHW() {
+  const names = getFilteredStudents().map(s=>s.name);
+  if (currentClass === 'all') return db.homework;
+  return db.homework.filter(h=>names.includes(h.student));
+}
+function getFilteredExp() {
+  const names = getFilteredStudents().map(s=>s.name);
+  if (currentClass === 'all') return db.experiments;
+  return db.experiments.filter(e=>names.includes(e.student));
+}
+
+// ===== MODALS =====
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function toggleStudentEdit(id) {
+  const form = document.getElementById('student-edit-form-'+id);
+  if (!form) return;
+  form.style.display = form.style.display === 'none' ? 'block' : 'none';
+}
+
+function saveStudentEdit(id) {
+  const s = db.students.find(s=>s.id===id);
+  if (!s) return;
+  s.name = document.getElementById('edit-name-'+id).value.trim() || s.name;
+  s.grade = document.getElementById('edit-grade-'+id).value;
+  s.classId = document.getElementById('edit-class-'+id).value;
+  s.trait = document.getElementById('edit-trait-'+id).value;
+  s.note = document.getElementById('edit-note-'+id).value;
+  s.talk = document.getElementById('edit-talk-'+id).value;
+  saveDB();
+  renderPage();
+  closeModal('modal-student-detail');
+}
+
+function openAddStudent() {
+  const sel = document.getElementById('s-class');
+  sel.innerHTML = db.classes.map(c=>`<option value="${c.id}" ${c.id===currentClass?'selected':''}>${c.name}</option>`).join('');
+  openModal('modal-add-student');
+}
+function openAddHW() {
+  document.getElementById('hw-edit-id').value = '';
+  document.getElementById('hw-modal-title').textContent = '숙제 퀄리티 기록';
+  document.getElementById('hw-delete-btn').style.display = 'none';
+  const sel = document.getElementById('hw-student-sel');
+  sel.innerHTML = getFilteredStudents().map(s=>`<option>${s.name}</option>`).join('');
+  sel.disabled = false;
+  document.getElementById('hw-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('hw-read').value = '';
+  document.getElementById('hw-wrong-list').innerHTML = '';
+  document.getElementById('hw-wrong-wrap').style.display = 'none';
+  document.getElementById('hw-wrong-toggle').classList.remove('open');
+  document.getElementById('hw-wrong-count').textContent = '0';
+  document.getElementById('hw-ai-analysis').innerHTML = '';
+  document.getElementById('hw-ai-analysis').removeAttribute('data-analysis');
+  document.getElementById('hw-memo').value = '';
+  wrongCounter = 0;
+  setStar(3);
+  openModal('modal-add-hw');
+}
+
+function openEditHW(hwId) {
+  const h = db.homework.find(h=>h.id===hwId);
+  if (!h) return;
+
+  document.getElementById('hw-edit-id').value = hwId;
+  document.getElementById('hw-modal-title').textContent = '숙제 기록 수정';
+  document.getElementById('hw-delete-btn').style.display = 'block';
+
+  // 학생 목록 세팅 + 현재 학생 선택
+  const sel = document.getElementById('hw-student-sel');
+  const allStudents = db.students.map(s=>s.name);
+  if (!allStudents.includes(h.student)) allStudents.push(h.student);
+  sel.innerHTML = allStudents.map(n=>`<option${n===h.student?' selected':''}>${n}</option>`).join('');
+
+  document.getElementById('hw-date').value = h.date || '';
+  document.getElementById('hw-read').value = h.read || '';
+  document.getElementById('hw-memo').value = h.memo || '';
+  setStar(h.stars || 3);
+
+  // 틀린 문제 복원
+  document.getElementById('hw-wrong-list').innerHTML = '';
+  wrongCounter = 0;
+  if (h.wrongs && h.wrongs.length) {
+    h.wrongs.forEach(w => {
+      // 호환: 기존 eng/ord/kor 구조 → 새 구조로 변환
+      if (w.types) {
+        addWrongItem(w);
+      } else {
+        const types = [];
+        if (w.engWrong !== false) types.push('eng');
+        if (w.ordWrong !== false) types.push('ord');
+        if (w.korWrong !== false) types.push('kor');
+        addWrongItem({ num: '', types, answer: '', studentAns: [w.eng,w.ord,w.kor].filter(Boolean).join(' / ') });
+      }
+    });
+  }
+
+  // AI 분석 복원
+  if (h.aiAnalysis) {
+    const el = document.getElementById('hw-ai-analysis');
+    el.innerHTML = renderAIAnalysisHTML(h.aiAnalysis);
+    el.dataset.analysis = h.aiAnalysis;
+  } else {
+    document.getElementById('hw-ai-analysis').innerHTML = '';
+    document.getElementById('hw-ai-analysis').removeAttribute('data-analysis');
+  }
+
+  openModal('modal-add-hw');
+}
+
+function deleteHW() {
+  const hwId = document.getElementById('hw-edit-id').value;
+  if (!hwId) return;
+  const h = db.homework.find(h=>h.id===hwId);
+  if (!h) return;
+  if (!confirm(`${h.student}의 ${h.date} 숙제 기록을 삭제하시겠습니까?`)) return;
+  db.homework = db.homework.filter(h=>h.id!==hwId);
+  saveDB();
+  renderPage();
+  closeModal('modal-add-hw');
+}
+function openAddExp() {
+  const classSel = document.getElementById('exp-class-sel');
+  classSel.innerHTML = db.classes.map(c=>`<option value="${c.id}" ${c.id===currentClass&&currentClass!=='all'?'selected':''}>${c.name}</option>`).join('');
+  document.getElementById('exp-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('exp-student-sel').value = '';
+  renderExpStudentList();
+  openModal('modal-add-exp');
+}
+
+function renderExpStudentList() {
+  const classId = document.getElementById('exp-class-sel').value;
+  const students = db.students.filter(s=>s.classId===classId);
+  const container = document.getElementById('exp-student-list');
+  if (!students.length) {
+    container.innerHTML = '<span style="font-size:12px;color:var(--text3)">이 반에 학생이 없습니다</span>';
+    return;
+  }
+  container.innerHTML = students.map(s => {
+    const cls = db.classes.find(c=>c.id===s.classId);
+    const color = cls?.color || 'var(--accent)';
+    return `<button type="button" class="student-pick" data-name="${s.name}" onclick="pickExpStudent(this,'${s.name}')">
+      <span style="width:6px;height:6px;border-radius:50%;background:${color}"></span>
+      ${s.name}
+    </button>`;
+  }).join('');
+}
+
+function pickExpStudent(el, name) {
+  document.querySelectorAll('#exp-student-list .student-pick').forEach(b=>b.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('exp-student-sel').value = name;
+}
+
+// ===== SAVE ACTIONS =====
+// ===== DAY & TIME PICKER =====
+const dayNames = ['월','화','수','목','금','토','일'];
+const timeSlots = [];
+for (let h=1;h<=10;h++) { timeSlots.push(h+'시'); timeSlots.push(h+'시 30분'); }
+
+function renderDayBtns(containerId, previewId) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = dayNames.map(d =>
+    `<button type="button" class="day-btn" data-day="${d}" onclick="this.classList.toggle('on');updateTimePreview('${previewId}')">${d}</button>`
+  ).join('');
+}
+
+function setDayBtns(containerId, days) {
+  document.querySelectorAll('#'+containerId+' .day-btn').forEach(b => {
+    b.classList.toggle('on', days.includes(b.dataset.day));
+  });
+}
+
+function getSelectedDays(containerId) {
+  return Array.from(document.querySelectorAll('#'+containerId+' .day-btn.on')).map(b=>b.dataset.day).join('');
+}
+
+function initTimePicker(ddId, valId, previewId) {
+  const dd = document.getElementById(ddId);
+  const curTime = document.getElementById(valId).dataset.time || '';
+  dd.innerHTML = timeSlots.map(t =>
+    `<span class="time-btn${t===curTime?' selected':''}" onclick="selectTime('${valId}','${ddId}','${previewId}',this.textContent)">${t}</span>`
+  ).join('');
+  document.getElementById(valId).onclick = (e) => {
+    e.stopPropagation();
+    document.querySelectorAll('.time-dropdown').forEach(d=>d.classList.remove('open'));
+    dd.classList.toggle('open');
+  };
+}
+
+function selectTime(valId, ddId, previewId, time) {
+  document.getElementById(valId).textContent = time;
+  document.getElementById(valId).dataset.time = time;
+  document.getElementById(ddId).classList.remove('open');
+  document.getElementById(ddId).querySelectorAll('.time-btn').forEach(b => b.classList.toggle('selected', b.textContent===time));
+  updateTimePreview(previewId);
+}
+
+function updateTimePreview(previewId) {
+  const prefix = previewId.replace('-time-preview','');
+  const dayContainerId = prefix + '-day-btns';
+  const startValId = prefix + '-start-val';
+  const endValId = prefix + '-end-val';
+  const days = getSelectedDays(dayContainerId);
+  const startT = document.getElementById(startValId)?.dataset?.time || '';
+  const endT = document.getElementById(endValId)?.dataset?.time || '';
+  let preview = '';
+  if (days) preview += days;
+  if (startT && endT) preview += (days?' ':'') + startT + ' ~ ' + endT;
+  else if (startT) preview += (days?' ':'') + startT + ' ~';
+  document.getElementById(previewId).textContent = preview || '요일과 시간을 선택하세요';
+}
+
+function buildTimeString(dayContainerId, startValId, endValId) {
+  const days = getSelectedDays(dayContainerId);
+  const startT = document.getElementById(startValId)?.dataset?.time || '';
+  const endT = document.getElementById(endValId)?.dataset?.time || '';
+  let time = '';
+  if (days) time += days;
+  if (startT && endT) time += (days?' ':'') + startT + '~' + endT;
+  return time.trim();
+}
+
+document.addEventListener('click', ()=>document.querySelectorAll('.time-dropdown').forEach(d=>d.classList.remove('open')));
+
+function openAddClass() {
+  selectedColor = '#2D5A3D';
+  renderColorPicker('color-picker', selectedColor);
+  document.getElementById('class-name-input').value = '';
+  renderDayBtns('class-day-btns', 'class-time-preview');
+  document.getElementById('class-start-val').textContent = '시작';
+  document.getElementById('class-start-val').dataset.time = '';
+  document.getElementById('class-end-val').textContent = '종료';
+  document.getElementById('class-end-val').dataset.time = '';
+  initTimePicker('class-start-dd','class-start-val','class-time-preview');
+  initTimePicker('class-end-dd','class-end-val','class-time-preview');
+  document.getElementById('class-time-preview').textContent = '요일과 시간을 선택하세요';
+  openModal('modal-add-class');
+}
+
+function saveClass() {
+  const name = document.getElementById('class-name-input').value.trim();
+  if (!name) return;
+  const time = buildTimeString('class-day-btns','class-start-val','class-end-val');
+  db.classes.push({
+    id: 'cls_'+Date.now(),
+    name,
+    time,
+    color: selectedColor
+  });
+  saveDB();
+  renderSidebar();
+  closeModal('modal-add-class');
+}
+
+function saveStudent() {
+  const name = document.getElementById('s-name').value.trim();
+  if (!name) return;
+  db.students.push({
+    id: 'stu_'+Date.now(),
+    name,
+    grade: document.getElementById('s-grade').value,
+    classId: document.getElementById('s-class').value,
+    trait: document.getElementById('s-trait').value,
+    note: document.getElementById('s-note').value,
+    talk: document.getElementById('s-talk').value
+  });
+  saveDB();
+  renderPage();
+  closeModal('modal-add-student');
+  ['s-name','s-trait','s-note','s-talk'].forEach(id=>document.getElementById(id).value='');
+}
+
+function collectWrongs() {
+  const wrongs = [];
+  document.querySelectorAll('#hw-wrong-list .wrong-item').forEach(el => {
+    const num = el.querySelector('.wq-num')?.value.trim() || '';
+    const chips = el.querySelectorAll('.type-chip');
+    const types = [];
+    chips.forEach(c => { if (c.classList.contains('on-eng')||c.classList.contains('on-ord')||c.classList.contains('on-kor')) types.push(c.dataset.type); });
+    const answer = el.querySelector('.wq-answer')?.value.trim() || '';
+    const studentAns = el.querySelector('.wq-student')?.value.trim() || '';
+    if (num || answer || studentAns || types.length) wrongs.push({ num, types, answer, studentAns });
+  });
+  return wrongs;
+}
+
+function saveHW() {
+  const wrongs = collectWrongs();
+  const readVal = document.getElementById('hw-read').value;
+  const aiEl = document.getElementById('hw-ai-analysis');
+  const aiAnalysis = aiEl?.dataset?.analysis || '';
+  const editId = document.getElementById('hw-edit-id').value;
+
+  const hwData = {
+    date: document.getElementById('hw-date').value,
+    student: document.getElementById('hw-student-sel').value,
+    stars: hwStar,
+    read: readVal ? readVal : '',
+    wrongs,
+    aiAnalysis,
+    memo: document.getElementById('hw-memo').value
+  };
+
+  if (editId) {
+    // 수정 모드
+    const idx = db.homework.findIndex(h=>h.id===editId);
+    if (idx !== -1) {
+      db.homework[idx] = { ...db.homework[idx], ...hwData };
+    }
+  } else {
+    // 신규 추가
+    hwData.id = 'hw_'+Date.now();
+    db.homework.push(hwData);
+  }
+
+  saveDB();
+  renderPage();
+  closeModal('modal-add-hw');
+  document.getElementById('hw-memo').value='';
+  document.getElementById('hw-wrong-list').innerHTML='';
+  document.getElementById('hw-ai-analysis').innerHTML='';
+  document.getElementById('hw-ai-analysis').removeAttribute('data-analysis');
+  document.getElementById('hw-edit-id').value='';
+}
+
+function saveExp() {
+  db.experiments.push({
+    id: 'exp_'+Date.now(),
+    date: document.getElementById('exp-date').value,
+    student: document.getElementById('exp-student-sel').value,
+    method: document.getElementById('exp-method').value,
+    result: document.getElementById('exp-result').value,
+    effect: document.getElementById('exp-effect').value,
+    next: document.getElementById('exp-next').value
+  });
+  saveDB();
+  renderPage();
+  closeModal('modal-add-exp');
+  ['exp-method','exp-result','exp-next'].forEach(id=>document.getElementById(id).value='');
+}
+
+function setStar(n) {
+  hwStar = n;
+  document.querySelectorAll('#hw-stars .star').forEach((s,i)=>s.classList.toggle('on',i<n));
+}
+
+// ===== WRONG ITEMS (온라인 틀린 문제) =====
+let wrongCounter = 0;
+
+function toggleWrongList() {
+  const wrap = document.getElementById('hw-wrong-wrap');
+  const btn = document.getElementById('hw-wrong-toggle');
+  const isOpen = wrap.style.display !== 'none';
+  wrap.style.display = isOpen ? 'none' : 'block';
+  btn.classList.toggle('open', !isOpen);
+}
+
+function updateWrongCount() {
+  const cnt = document.querySelectorAll('#hw-wrong-list .wrong-item').length;
+  document.getElementById('hw-wrong-count').textContent = cnt;
+}
+
+function addWrongItem(data) {
+  wrongCounter++;
+  const d = data || {};
+  const list = document.getElementById('hw-wrong-list');
+  const div = document.createElement('div');
+  div.className = 'wrong-item';
+  const types = d.types || [];
+  div.innerHTML = `
+    <div class="wrong-header">
+      <span class="wrong-num">${d.num || wrongCounter}번 문제</span>
+      <button type="button" class="wrong-del" onclick="this.closest('.wrong-item').remove();updateWrongCount()" title="삭제">×</button>
+    </div>
+    <div class="wrong-field">
+      <label>문제 번호</label>
+      <input class="wq-num" type="text" value="${d.num||wrongCounter}" placeholder="예: 3" style="width:80px" />
+    </div>
+    <div class="wrong-field">
+      <label>틀린 유형 (복수 선택 가능)</label>
+      <div style="display:flex;gap:6px;margin-top:2px">
+        <span class="type-chip ${types.includes('eng')?'on-eng':''}" data-type="eng" onclick="toggleTypeChip(this)">영작하기</span>
+        <span class="type-chip ${types.includes('ord')?'on-ord':''}" data-type="ord" onclick="toggleTypeChip(this)">어순배열</span>
+        <span class="type-chip ${types.includes('kor')?'on-kor':''}" data-type="kor" onclick="toggleTypeChip(this)">해석</span>
+      </div>
+    </div>
+    <div class="wrong-field">
+      <label>정답</label>
+      <textarea class="wq-answer" placeholder="정답을 입력하세요">${d.answer||''}</textarea>
+    </div>
+    <div class="wrong-field">
+      <label>학생 작성 답안</label>
+      <textarea class="wq-student" placeholder="학생이 작성한 답안을 입력하세요">${d.studentAns||''}</textarea>
+    </div>
+  `;
+  list.appendChild(div);
+  updateWrongCount();
+  // 펼치기
+  document.getElementById('hw-wrong-wrap').style.display = 'block';
+  document.getElementById('hw-wrong-toggle').classList.add('open');
+}
+
+function toggleTypeChip(el) {
+  const t = el.dataset.type;
+  const cls = 'on-' + t;
+  el.classList.toggle(cls);
+}
+
+function showAIAnalysis(hwId) {
+  const h = db.homework.find(h=>h.id===hwId);
+  if (!h || !h.aiAnalysis) return;
+  document.getElementById('detail-name').textContent = h.student + ' — AI 오답 분석 (' + h.date + ')';
+  document.getElementById('modal-detail-body').innerHTML = renderAIAnalysisHTML(h.aiAnalysis);
+  openModal('modal-student-detail');
+}
+
+function getTypeLabel(t) { return t==='eng'?'영작하기':t==='ord'?'어순배열':'해석'; }
+function getTypeColor(t) { return t==='eng'?'var(--accent2)':t==='ord'?'var(--gold)':'#185FA5'; }
+function getTypeBg(t) { return t==='eng'?'var(--accent2-light)':t==='ord'?'var(--gold-light)':'#EAF1FB'; }
+
+function showWrongDetail(hwId) {
+  const h = db.homework.find(h=>h.id===hwId);
+  if (!h || !h.wrongs || !h.wrongs.length) return;
+  const body = h.wrongs.map((w, i) => {
+    // 호환: 기존 구조
+    if (!w.types) {
+      const types = [];
+      if (w.engWrong !== false) types.push('eng');
+      if (w.ordWrong !== false) types.push('ord');
+      if (w.korWrong !== false) types.push('kor');
+      w = { num: i+1, types, answer: '', studentAns: [w.eng,w.ord,w.kor].filter(Boolean).join(' / ') };
+    }
+    const typeBadges = (w.types||[]).map(t => `<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;background:${getTypeBg(t)};color:${getTypeColor(t)}">${getTypeLabel(t)}</span>`).join(' ');
+    return `<div class="wrong-item" style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span class="wrong-num">${w.num||i+1}번 문제</span>
+        <div>${typeBadges}</div>
+      </div>
+      ${w.answer?`<div style="margin-bottom:4px"><span style="font-size:10px;color:var(--accent);font-weight:600">정답</span><div style="padding:5px 10px;background:#EEF7EF;border-radius:6px;font-size:13px;border-left:3px solid var(--accent);margin-top:2px">${w.answer}</div></div>`:''}
+      ${w.studentAns?`<div><span style="font-size:10px;color:var(--accent2);font-weight:600">학생 답안</span><div style="padding:5px 10px;background:#FFF0EE;border-radius:6px;font-size:13px;border-left:3px solid var(--accent2);margin-top:2px">${w.studentAns}</div></div>`:''}
+    </div>`;
+  }).join('');
+  const aiSection = h.aiAnalysis ? `<div class="divider" style="margin:12px 0"></div>${renderAIAnalysisHTML(h.aiAnalysis)}` : '';
+  document.getElementById('detail-name').textContent = h.student + ' — 틀린 문제 (' + h.date + ')';
+  document.getElementById('modal-detail-body').innerHTML = body + aiSection;
+  openModal('modal-student-detail');
+}
+
+// ===== HELPER: extract type counts from wrongs (supports old+new format) =====
+function countTypes(wrongs) {
+  let eng=0, ord=0, kor=0;
+  wrongs.forEach(w => {
+    if (w.types) { // new format
+      if (w.types.includes('eng')) eng++;
+      if (w.types.includes('ord')) ord++;
+      if (w.types.includes('kor')) kor++;
+    } else { // old format
+      if (w.engWrong !== false) eng++;
+      if (w.ordWrong !== false) ord++;
+      if (w.korWrong !== false) kor++;
+    }
+  });
+  return { eng, ord, kor };
+}
+
+// ===== WEAKNESS ANALYSIS (취약점 분석) =====
+function renderWeaknessAnalysis(hwList) {
+  const el = document.getElementById('hw-weakness-analysis');
+  const allWrongs = [];
+  hwList.forEach(h => {
+    if (h.wrongs && h.wrongs.length) {
+      h.wrongs.forEach(w => allWrongs.push({ ...w, student: h.student, date: h.date }));
+    }
+  });
+  if (!allWrongs.length) { el.innerHTML = ''; return; }
+
+  const tc = countTypes(allWrongs);
+  const total = allWrongs.length;
+  const engPct = total?Math.round(tc.eng/total*100):0;
+  const ordPct = total?Math.round(tc.ord/total*100):0;
+  const korPct = total?Math.round(tc.kor/total*100):0;
+
+  // 학생별
+  const sMap = {};
+  hwList.forEach(h => {
+    if (!h.wrongs||!h.wrongs.length) return;
+    if (!sMap[h.student]) sMap[h.student] = { wrongs:[], dates:{} };
+    h.wrongs.forEach(w => sMap[h.student].wrongs.push(w));
+    if (!sMap[h.student].dates[h.date]) sMap[h.student].dates[h.date]=0;
+    sMap[h.student].dates[h.date] += h.wrongs.length;
+  });
+
+  const studentCards = Object.entries(sMap).map(([name,d]) => {
+    const sc = countTypes(d.wrongs);
+    const st = d.wrongs.length;
+    const de = Object.entries(d.dates).sort((a,b)=>a[0].localeCompare(b[0])).slice(-5);
+    const mx = Math.max(...de.map(e=>e[1]),1);
+    const bars = de.map(([dt,c])=>`<div style="text-align:center;flex:1"><div style="height:36px;display:flex;align-items:flex-end;justify-content:center"><div style="width:14px;background:var(--accent2);border-radius:3px 3px 0 0;height:${Math.round(c/mx*100)}%;min-height:4px"></div></div><div style="font-size:9px;color:var(--text3);margin-top:2px">${dt.slice(5)}</div><div style="font-size:10px;font-weight:600">${c}</div></div>`).join('');
+    const areas=[{n:'영작',c:sc.eng,color:'var(--accent2)'},{n:'어순',c:sc.ord,color:'var(--gold)'},{n:'해석',c:sc.kor,color:'#185FA5'}].sort((a,b)=>b.c-a.c);
+    return `<div style="background:var(--surface2);border-radius:var(--radius-sm);padding:14px;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:8px"><b>${name}</b><span class="badge badge-red">${st}문제</span></div>
+        <span style="font-size:11px;color:var(--accent2)">주요 취약: <b>${areas[0].n}</b></span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">${areas.map(a=>`<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px">${a.n} ${st?Math.round(a.c/st*100):0}%</div><div class="weakness-bar-bg"><div class="weakness-bar-fill" style="width:${st?Math.round(a.c/st*100):0}%;background:${a.color}"></div></div><div style="font-size:11px;font-weight:600;margin-top:2px">${a.c}건</div></div>`).join('')}</div>
+      ${de.length>1?`<div style="margin-bottom:6px"><div style="font-size:10px;color:var(--text3);margin-bottom:4px">날짜별 추이</div><div style="display:flex;gap:4px">${bars}</div></div>`:''}
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `<div class="card" style="margin-top:0">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <h4 style="margin:0">오답 유형별 분석</h4><span class="badge badge-gray">총 ${total}문제</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:18px">
+      <div class="weakness-box"><h5>영작하기</h5><div style="font-size:22px;font-weight:700;color:var(--accent2);margin:4px 0">${engPct}%</div><div class="weakness-bar-wrap"><div class="weakness-bar-bg"><div class="weakness-bar-fill" style="width:${engPct}%;background:var(--accent2)"></div></div><span class="weakness-bar-count">${tc.eng}건</span></div></div>
+      <div class="weakness-box"><h5>어순배열</h5><div style="font-size:22px;font-weight:700;color:var(--gold);margin:4px 0">${ordPct}%</div><div class="weakness-bar-wrap"><div class="weakness-bar-bg"><div class="weakness-bar-fill" style="width:${ordPct}%;background:var(--gold)"></div></div><span class="weakness-bar-count">${tc.ord}건</span></div></div>
+      <div class="weakness-box"><h5>해석</h5><div style="font-size:22px;font-weight:700;color:#185FA5;margin:4px 0">${korPct}%</div><div class="weakness-bar-wrap"><div class="weakness-bar-bg"><div class="weakness-bar-fill" style="width:${korPct}%;background:#185FA5"></div></div><span class="weakness-bar-count">${tc.kor}건</span></div></div>
+    </div>
+    <h4 style="margin-bottom:10px">학생별 상세</h4>${studentCards}
+  </div>`;
+}
+
+// ===== AI WRONG PATTERN ANALYSIS =====
+async function analyzeWrongPattern(mode) {
+  const wrongs = collectWrongs();
+  const studentName = document.getElementById('hw-student-sel').value;
+  const el = document.getElementById('hw-ai-analysis');
+
+  if (mode === 'current' && !wrongs.length) {
+    el.innerHTML = '<p style="font-size:12px;color:var(--accent2)">틀린 문제를 먼저 추가해주세요.</p>';
+    return;
+  }
+
+  const pastHW = db.homework.filter(h => h.student === studentName && h.wrongs && h.wrongs.length);
+  const pastWrongs = pastHW.flatMap(h => h.wrongs);
+
+  if (mode === 'cumulative' && !pastWrongs.length && !wrongs.length) {
+    el.innerHTML = '<p style="font-size:12px;color:var(--accent2)">이 학생의 오답 기록이 없습니다.</p>';
+    return;
+  }
+
+  el.innerHTML = '<div class="loading"><div class="spinner"></div> 분석 중...</div>';
+
+  if (mode === 'current') {
+    const analysis = buildCurrentAnalysis(wrongs, studentName);
+    el.innerHTML = analysis;
+    el.dataset.analysis = analysis;
+  } else {
+    const allW = [...pastWrongs, ...wrongs];
+    const analysis = buildCumulativeAnalysis(allW, pastHW, wrongs, studentName);
+    el.innerHTML = analysis;
+    el.dataset.analysis = analysis;
+  }
+}
+
+function buildCurrentAnalysis(wrongs, name) {
+  const tc = countTypes(wrongs);
+  const total = wrongs.length;
+  const engPct = total?Math.round(tc.eng/total*100):0;
+  const ordPct = total?Math.round(tc.ord/total*100):0;
+  const korPct = total?Math.round(tc.kor/total*100):0;
+  const areas = [{n:'영작하기',c:tc.eng,color:'var(--accent2)',bg:'var(--accent2-light)'},{n:'어순배열',c:tc.ord,color:'var(--gold)',bg:'var(--gold-light)'},{n:'해석',c:tc.kor,color:'#185FA5',bg:'#EAF1FB'}].sort((a,b)=>b.c-a.c);
+
+  // 유형별 차트
+  let chart = `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:12px 0">
+    ${areas.map(a => `<div style="text-align:center;padding:10px;background:${a.bg};border-radius:var(--radius-sm);border:1px solid ${a.color}20">
+      <div style="font-size:20px;font-weight:700;color:${a.color}">${a.c}</div>
+      <div style="font-size:11px;color:${a.color};font-weight:600">${a.n}</div>
+      <div style="font-size:10px;color:var(--text3)">${total?Math.round(a.c/total*100):0}%</div>
+    </div>`).join('')}
+  </div>`;
+
+  // 문제별 분석
+  let problems = wrongs.map((w,i) => {
+    const typeLabels = (w.types||[]).map(t => `<span style="padding:1px 6px;border-radius:8px;font-size:10px;background:${getTypeBg(t)};color:${getTypeColor(t)};font-weight:600">${getTypeLabel(t)}</span>`).join(' ');
+    let cause = '';
+    const ts = w.types||[];
+    if (ts.length===1) {
+      if (ts[0]==='eng') cause = '영어 문장 구조/문법/철자 오류. 정확한 표현 암기 필요';
+      else if (ts[0]==='ord') cause = '끊어읽기 순서 감각 부족. 영어 어순 → 한국어 직역 훈련 필요';
+      else cause = '한국어 의역이 부정확. 문맥 파악과 자연스러운 표현 연습 필요';
+    } else if (ts.length===2) {
+      cause = ts.map(getTypeLabel).join('+') + ' 동시 오류. 문장 구조 전반적 이해 부족';
+    } else if (ts.length>=3) {
+      cause = '세 영역 모두 오답. 해당 문장의 핵심 문법을 처음부터 다시 학습 필요';
+    }
+    return `<div style="padding:8px 10px;background:var(--surface);border-radius:6px;margin-bottom:6px;border-left:3px solid var(--accent2)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <b style="font-size:12px">${w.num||i+1}번</b>${typeLabels}
+      </div>
+      ${w.answer?`<div style="font-size:11px;margin-bottom:2px"><span style="color:var(--accent)">정답:</span> ${w.answer}</div>`:''}
+      ${w.studentAns?`<div style="font-size:11px;margin-bottom:2px"><span style="color:var(--accent2)">학생:</span> ${w.studentAns}</div>`:''}
+      <div style="font-size:11px;color:var(--text2);margin-top:4px;padding-top:4px;border-top:1px dashed var(--border)">원인: ${cause}</div>
+    </div>`;
+  }).join('');
+
+  // 해결방법
+  const weakest = areas[0];
+  let solution = '';
+  if (weakest.n==='영작하기') solution = '핵심 문장 패턴 반복 영작 연습, 주어+동사+목적어 기본 구조 확인, 자주 틀리는 문법 요소 집중 복습';
+  else if (weakest.n==='어순배열') solution = '영어 문장 슬래시(/) 끊어 읽기 연습, 주어/동사/목적어 덩어리 시각적 구분 훈련';
+  else solution = '틀린 문장 핵심 단어 암기, 문맥 파악 직독직해 연습, 자연스러운 한국어 표현 훈련';
+
+  return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid var(--accent2)">
+      <span style="font-size:16px">📊</span>
+      <b style="font-size:14px;color:var(--accent2)">이번 회차 분석 — ${name}</b>
+      <span class="badge badge-red">${total}문제</span>
+    </div>
+    ${chart}
+    <div style="margin:12px 0 6px;font-weight:700;color:var(--accent);font-size:13px;border-bottom:1px solid var(--border);padding-bottom:4px">📝 문제별 원인 분석</div>
+    ${problems}
+    <div style="margin:12px 0 6px;font-weight:700;color:var(--accent);font-size:13px;border-bottom:1px solid var(--border);padding-bottom:4px">🎯 취약 영역</div>
+    <div style="font-size:12px;padding:8px;background:${weakest.bg};border-radius:6px;border-left:3px solid ${weakest.color}">
+      가장 취약: <b style="color:${weakest.color}">${weakest.n}</b> (${weakest.c}/${total}문제, ${total?Math.round(weakest.c/total*100):0}%)
+    </div>
+    <div style="margin:12px 0 6px;font-weight:700;color:var(--accent);font-size:13px;border-bottom:1px solid var(--border);padding-bottom:4px">💡 해결 방법</div>
+    <div style="font-size:12px;line-height:1.7">
+      <div style="margin-bottom:4px">1. <b>즉시 보강:</b> ${solution}</div>
+      <div style="margin-bottom:4px">2. <b>수업 활용:</b> 틀린 문장을 화이트보드에 쓰고 학생이 직접 풀어보게 하기</div>
+      <div>3. <b>추가 과제:</b> 틀린 ${total}문장을 정답 3회 반복 쓰기</div>
+    </div>
+    <div style="margin:12px 0 6px;font-weight:700;color:var(--accent);font-size:13px;border-bottom:1px solid var(--border);padding-bottom:4px">📚 추천 학습</div>
+    <div style="font-size:12px;line-height:1.7">
+      ${tc.eng?'<div>· 영작: 오답 문장의 핵심 문법 정리 → 유사 패턴 5문장 추가 연습</div>':''}
+      ${tc.ord?'<div>· 어순: 매일 3문장씩 끊어읽기 → 직역 순서 연습</div>':''}
+      ${tc.kor?'<div>· 해석: 틀린 문장 직독직해 후 자연스러운 의역 비교 연습</div>':''}
+    </div>
+  </div>`;
+}
+
+function buildCumulativeAnalysis(allWrongs, pastHW, currentWrongs, name) {
+  const total = allWrongs.length;
+  if (!total) return '<p style="font-size:12px;color:var(--text3)">누적 데이터가 없습니다.</p>';
+
+  const tc = countTypes(allWrongs);
+  const engPct = Math.round(tc.eng/total*100);
+  const ordPct = Math.round(tc.ord/total*100);
+  const korPct = Math.round(tc.kor/total*100);
+
+  // 회차별 추이 계산
+  const sessions = pastHW.map(h => ({ date: h.date, wrongs: h.wrongs, tc: countTypes(h.wrongs), total: h.wrongs.length }));
+  if (currentWrongs.length) sessions.push({ date: '이번', wrongs: currentWrongs, tc: countTypes(currentWrongs), total: currentWrongs.length });
+
+  // 개선율 계산
+  let improvementHtml = '';
+  if (sessions.length >= 2) {
+    const first = sessions[0], last = sessions[sessions.length-1];
+    const fTotal = first.total, lTotal = last.total;
+    const diff = fTotal - lTotal;
+    const pct = fTotal ? Math.round(diff/fTotal*100) : 0;
+    const improved = diff > 0;
+    improvementHtml = `<div style="text-align:center;padding:12px;background:${improved?'var(--accent-light)':'var(--accent2-light)'};border-radius:var(--radius-sm);margin-bottom:12px">
+      <div style="font-size:24px;font-weight:700;color:${improved?'var(--accent)':'var(--accent2)'}">${improved?'↓':'↑'} ${Math.abs(pct)}%</div>
+      <div style="font-size:12px;color:var(--text2)">${improved?'개선됨':'악화됨'} (첫 기록 ${fTotal}문제 → 최근 ${lTotal}문제)</div>
+    </div>`;
+  }
+
+  // 회차별 막대 그래프
+  const maxS = Math.max(...sessions.map(s=>s.total),1);
+  const sessionBars = sessions.slice(-6).map(s => {
+    const h = Math.round(s.total/maxS*100);
+    return `<div style="text-align:center;flex:1">
+      <div style="height:50px;display:flex;align-items:flex-end;justify-content:center;gap:1px">
+        <div style="width:6px;background:var(--accent2);border-radius:2px 2px 0 0;height:${s.tc.eng?Math.round(s.tc.eng/maxS*100):0}%;min-height:${s.tc.eng?2:0}px" title="영작"></div>
+        <div style="width:6px;background:var(--gold);border-radius:2px 2px 0 0;height:${s.tc.ord?Math.round(s.tc.ord/maxS*100):0}%;min-height:${s.tc.ord?2:0}px" title="어순"></div>
+        <div style="width:6px;background:#185FA5;border-radius:2px 2px 0 0;height:${s.tc.kor?Math.round(s.tc.kor/maxS*100):0}%;min-height:${s.tc.kor?2:0}px" title="해석"></div>
+      </div>
+      <div style="font-size:9px;color:var(--text3);margin-top:3px">${s.date==='이번'?'이번':s.date.slice(5)}</div>
+      <div style="font-size:10px;font-weight:600">${s.total}</div>
+    </div>`;
+  }).join('');
+
+  // 반복 약점 vs 개선된 부분
+  let repeating = '', newErrors = '', improved = '';
+  if (sessions.length >= 2) {
+    const earlyTC = countTypes(sessions.slice(0, Math.ceil(sessions.length/2)).flatMap(s=>s.wrongs));
+    const lateTC = countTypes(sessions.slice(Math.ceil(sessions.length/2)).flatMap(s=>s.wrongs));
+    ['eng','ord','kor'].forEach(k => {
+      const label = k==='eng'?'영작하기':k==='ord'?'어순배열':'해석';
+      const color = k==='eng'?'var(--accent2)':k==='ord'?'var(--gold)':'#185FA5';
+      if (earlyTC[k] > 0 && lateTC[k] > 0) repeating += `<div style="font-size:12px;padding:4px 8px;background:var(--accent2-light);border-radius:4px;margin-bottom:3px;border-left:3px solid ${color}"><b>${label}</b> — 초기 ${earlyTC[k]}건 → 최근 ${lateTC[k]}건 (계속 반복)</div>`;
+      else if (earlyTC[k] > 0 && lateTC[k] === 0) improved += `<div style="font-size:12px;padding:4px 8px;background:var(--accent-light);border-radius:4px;margin-bottom:3px;border-left:3px solid var(--accent)"><b>${label}</b> — 초기 ${earlyTC[k]}건 → 최근 0건 (개선됨!)</div>`;
+      else if (earlyTC[k] === 0 && lateTC[k] > 0) newErrors += `<div style="font-size:12px;padding:4px 8px;background:var(--gold-light);border-radius:4px;margin-bottom:3px;border-left:3px solid var(--gold)"><b>${label}</b> — 새롭게 ${lateTC[k]}건 발생</div>`;
+    });
+  }
+
+  return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid var(--accent)">
+      <span style="font-size:16px">📈</span>
+      <b style="font-size:14px;color:var(--accent)">누적 분석 — ${name}</b>
+      <span class="badge badge-gray">전체 ${total}문제 / ${sessions.length}회차</span>
+    </div>
+    ${improvementHtml}
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px">
+      <div style="text-align:center;padding:10px;background:var(--accent2-light);border-radius:var(--radius-sm)">
+        <div style="font-size:20px;font-weight:700;color:var(--accent2)">${engPct}%</div>
+        <div style="font-size:11px;font-weight:600;color:var(--accent2)">영작하기 ${tc.eng}건</div>
+        <div class="weakness-bar-bg" style="margin-top:4px"><div class="weakness-bar-fill" style="width:${engPct}%;background:var(--accent2)"></div></div>
+      </div>
+      <div style="text-align:center;padding:10px;background:var(--gold-light);border-radius:var(--radius-sm)">
+        <div style="font-size:20px;font-weight:700;color:var(--gold)">${ordPct}%</div>
+        <div style="font-size:11px;font-weight:600;color:var(--gold)">어순배열 ${tc.ord}건</div>
+        <div class="weakness-bar-bg" style="margin-top:4px"><div class="weakness-bar-fill" style="width:${ordPct}%;background:var(--gold)"></div></div>
+      </div>
+      <div style="text-align:center;padding:10px;background:#EAF1FB;border-radius:var(--radius-sm)">
+        <div style="font-size:20px;font-weight:700;color:#185FA5">${korPct}%</div>
+        <div style="font-size:11px;font-weight:600;color:#185FA5">해석 ${tc.kor}건</div>
+        <div class="weakness-bar-bg" style="margin-top:4px"><div class="weakness-bar-fill" style="width:${korPct}%;background:#185FA5"></div></div>
+      </div>
+    </div>
+    ${sessions.length>1?`<div style="margin-bottom:14px">
+      <div style="font-weight:700;color:var(--accent);font-size:13px;margin-bottom:6px;border-bottom:1px solid var(--border);padding-bottom:4px">📊 회차별 추이</div>
+      <div style="display:flex;gap:4px;align-items:flex-end;margin-bottom:4px">${sessionBars}</div>
+      <div style="display:flex;gap:12px;justify-content:center;font-size:10px;color:var(--text3)">
+        <span><span style="display:inline-block;width:8px;height:8px;background:var(--accent2);border-radius:2px"></span> 영작</span>
+        <span><span style="display:inline-block;width:8px;height:8px;background:var(--gold);border-radius:2px"></span> 어순</span>
+        <span><span style="display:inline-block;width:8px;height:8px;background:#185FA5;border-radius:2px"></span> 해석</span>
+      </div>
+    </div>`:''}
+    ${repeating?`<div style="margin-bottom:10px"><div style="font-weight:700;color:var(--accent2);font-size:13px;margin-bottom:6px;border-bottom:1px solid var(--border);padding-bottom:4px">🔄 반복되는 약점</div>${repeating}</div>`:''}
+    ${newErrors?`<div style="margin-bottom:10px"><div style="font-weight:700;color:var(--gold);font-size:13px;margin-bottom:6px;border-bottom:1px solid var(--border);padding-bottom:4px">⚠️ 새로 나타난 오류</div>${newErrors}</div>`:''}
+    ${improved?`<div style="margin-bottom:10px"><div style="font-weight:700;color:var(--accent);font-size:13px;margin-bottom:6px;border-bottom:1px solid var(--border);padding-bottom:4px">✅ 잘하게 된 부분</div>${improved}</div>`:''}
+    <div style="font-weight:700;color:var(--accent);font-size:13px;margin-bottom:6px;border-bottom:1px solid var(--border);padding-bottom:4px">💡 종합 학습 제안</div>
+    <div style="font-size:12px;line-height:1.7">
+      ${tc.eng?'<div>· 영작: 자주 틀리는 문법 패턴을 정리해서 매일 5문장 영작 연습</div>':''}
+      ${tc.ord?'<div>· 어순: 매일 3문장 끊어읽기 → 영어 순서대로 직역하는 연습</div>':''}
+      ${tc.kor?'<div>· 해석: 직독직해 후 자연스러운 의역 비교 연습</div>':''}
+    </div>
+  </div>`;
+}
+
+function renderAIAnalysisHTML(text) {
+  let html = text
+    .replace(/## (.+)/g, '<div style="font-size:13px;font-weight:700;color:var(--accent);margin:12px 0 6px;border-bottom:1px solid var(--border);padding-bottom:4px">$1</div>')
+    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+    .replace(/^(\d+)\.\s/gm, '<span style="color:var(--accent2);font-weight:600">$1.</span> ')
+    .replace(/^- /gm, '<span style="color:var(--accent)">  ·</span> ')
+    .replace(/\n/g, '<br>');
+  return `<div class="ai-result" style="font-size:12px;line-height:1.8;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px">${html}</div>`;
+}
+
+// ===== SUPPLEMENT RECORDS (보충 기록) =====
+let supSelectedType = '스테이';
+let supSelectedInc = '';
+
+function pickSupType(sid, type) {
+  supSelectedType = type;
+  document.getElementById('sup-type-stay-'+sid).className = 'type-chip' + (type==='스테이'?' on-ord':'');
+  document.getElementById('sup-type-early-'+sid).className = 'type-chip' + (type==='조기등원'?' on-ord':'');
+}
+
+function pickSupInc(sid, inc) {
+  supSelectedInc = supSelectedInc===inc ? '' : inc;
+  ['온라인','하브루타','둘다'].forEach(v => {
+    const el = document.getElementById('sup-inc-'+(v==='온라인'?'online':v==='하브루타'?'havru':'both')+'-'+sid);
+    el.className = 'type-chip' + (supSelectedInc===v?' on-eng':'');
+  });
+}
+
+function toggleSupTime(valEl, ddId) {
+  event.stopPropagation();
+  document.querySelectorAll('.time-dropdown').forEach(d=>d.classList.remove('open'));
+  const dd = document.getElementById(ddId);
+  if (!dd.innerHTML) dd.innerHTML = timeSlots.map(t=>`<span class="time-btn" onclick="event.stopPropagation();this.closest('.time-picker-wrap').querySelector('.time-val').textContent='${t}';this.closest('.time-picker-wrap').querySelector('.time-val').dataset.time='${t}';this.closest('.time-dropdown').classList.remove('open')">${t}</span>`).join('');
+  dd.classList.toggle('open');
+}
+
+function parseTimeToMinutes(t) {
+  if (!t) return 0;
+  const m = t.match(/(\d+)시(?:\s*(\d+)분)?/);
+  if (!m) return 0;
+  return parseInt(m[1])*60 + (parseInt(m[2])||0);
+}
+
+function saveSupplement(sid, sname) {
+  if (!db.supplements) db.supplements = [];
+  const date = document.getElementById('sup-date-'+sid).value;
+  const startTime = document.getElementById('sup-start-val-'+sid).dataset?.time || '';
+  const endTime = document.getElementById('sup-end-val-'+sid).dataset?.time || '';
+  const done = document.getElementById('sup-done-'+sid).checked;
+  const memo = document.getElementById('sup-memo-'+sid).value;
+  const startMins = parseTimeToMinutes(startTime);
+  const endMins = parseTimeToMinutes(endTime);
+  const minutes = endMins > startMins ? endMins - startMins : 0;
+
+  db.supplements.push({
+    id: 'sup_'+Date.now(),
+    student: sname,
+    date, type: supSelectedType,
+    startTime, endTime, minutes,
+    incomplete: supSelectedInc,
+    done, memo
+  });
+  saveDB();
+  // Re-open the student detail to refresh
+  showStudentDetail(sid);
+}
+
+// ===== COACHING ASSISTANT: INSTANT ADVICE =====
+async function askCoachAdvice(studentId) {
+  const s = db.students.find(s=>s.id===studentId);
+  if (!s) return;
+  const input = document.getElementById('coach-ask-'+studentId);
+  const question = input.value.trim();
+  if (!question) return;
+  const el = document.getElementById('coach-answer-'+studentId);
+  el.innerHTML = '<div class="loading"><div class="spinner"></div> 조언 생성 중...</div>';
+
+  const hw = db.homework.filter(h=>h.student===s.name);
+  const exp = db.experiments.filter(e=>e.student===s.name);
+  const goodExp = exp.filter(e=>e.effect==='good');
+  const badExp = exp.filter(e=>e.effect==='bad');
+  const avgStars = hw.length ? (hw.reduce((a,h)=>a+h.stars,0)/hw.length).toFixed(1) : '없음';
+
+  const context = `학생 정보:
+이름: ${s.name}, 학년: ${s.grade}
+성향: ${s.trait||'미입력'}
+주의사항: ${s.note||'미입력'}
+스몰톡 소재: ${s.talk||'미입력'}
+숙제 평균: ★${avgStars} (${hw.length}건)
+효과있는 방법: ${goodExp.map(e=>e.method).join(', ')||'기록없음'}
+효과없는 방법: ${badExp.map(e=>e.method).join(', ')||'기록없음'}`;
+
+  const prompt = `당신은 영어 학원 코칭 전문가입니다. 선생님이 학생에 대해 질문합니다.
+
+${context}
+
+선생님 질문: "${question}"
+
+이 학생의 전체 기록을 바탕으로 구체적이고 실용적인 조언을 해주세요.
+- 즉시 할 수 있는 행동 1~2가지
+- 주의할 점
+- 말투/태도 예시
+간결하게 핵심만 답해주세요.`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 800, messages: [{ role: 'user', content: prompt }] })
+    });
+    const data = await res.json();
+    const text = data.content?.map(c=>c.text||'').join('') || '';
+    if (text) {
+      el.innerHTML = renderAIAnalysisHTML(text);
+      input.value = '';
+      return;
+    }
+  } catch(e) {}
+
+  // 로컬 응답
+  let advice = `<div style="padding:10px 12px;background:var(--accent-light);border-radius:var(--radius-sm);border-left:3px solid var(--accent);font-size:12px;line-height:1.7">`;
+  advice += `<b>💬 ${s.name}에 대한 조언</b><br><br>`;
+  if (s.note) advice += `<b>주의:</b> ${s.note}<br>`;
+  if (goodExp.length) advice += `<b>효과있었던 방법:</b> "${goodExp[goodExp.length-1].method}" → 이걸 다시 시도해보세요.<br>`;
+  if (badExp.length) advice += `<b>피해야 할 것:</b> "${badExp[badExp.length-1].method}" → 효과없었으니 다른 방식으로.<br>`;
+  if (s.talk) advice += `<b>분위기 전환:</b> ${s.talk.split(',')[0].trim()} 이야기로 먼저 편하게 다가가세요.<br>`;
+  advice += `<br><b>핵심:</b> 먼저 학생의 감정 상태를 확인하고, 공감 → 작은 격려 → 구체적 행동 순서로 접근하세요.`;
+  advice += `</div>`;
+  el.innerHTML = advice;
+  input.value = '';
+}
+
+function selectColor(el, color) {
+  // Check if this is in the edit-class modal or add-class modal
+  const inEditModal = el.closest('#edit-class-color-picker');
+  if (inEditModal) {
+    editClassColor = color;
+    document.querySelectorAll('#edit-class-color-picker .color-opt').forEach(e=>e.style.border='2px solid transparent');
+  } else {
+    selectedColor = color;
+    document.querySelectorAll('#color-picker .color-opt').forEach(e=>e.style.border='2px solid transparent');
+  }
+  el.style.border = '2px solid var(--text)';
+}
+</script>
+</body>
+</html>
