@@ -1041,14 +1041,31 @@ let hwStar = 3;
 let selectedColor = '#2D5A3D';
 
 // ===== STORAGE =====
+const DB_KEY = 'ez-v3';
+
 function saveDB() {
-  localStorage.setItem('ez-coaching-db', JSON.stringify(db));
+  localStorage.setItem(DB_KEY, JSON.stringify(db));
 }
+
 function loadDB() {
-  const d = localStorage.getItem('ez-coaching-db');
-  if (d) db = JSON.parse(d);
-  // 기본 반 없으면 샘플 추가
-  if (!db.classes.length) {
+  // 1. 새 키에서 로드
+  let d = localStorage.getItem(DB_KEY);
+  // 2. 없으면 이전 키에서 마이그레이션
+  if (!d) {
+    d = localStorage.getItem('ez-coaching-db');
+    if (d) localStorage.setItem(DB_KEY, d);
+  }
+  if (d) {
+    const parsed = JSON.parse(d);
+    // 기존 데이터에 새 필드가 없으면 추가 (데이터 보존)
+    db.classes = parsed.classes || [];
+    db.students = parsed.students || [];
+    db.homework = parsed.homework || [];
+    db.experiments = parsed.experiments || [];
+    db.supplements = parsed.supplements || [];
+  }
+  // 완전히 비어있을 때만 샘플 추가
+  if (!db.classes.length && !db.students.length && !db.homework.length) {
     db.classes = [
       { id: 'w16', name: 'W16', time: '월수 4시', color: '#2D5A3D' },
       { id: 'w17', name: 'W17', time: '화목 5시', color: '#185FA5' },
