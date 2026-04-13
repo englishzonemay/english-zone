@@ -2659,15 +2659,67 @@ async function analyzeWrongPattern(mode) {
   }
 }
 
+// 청크 비교해서 구체적 차이점 추출
+function analyzeChunkDiff(answer, student) {
+  if (!answer || !student) return [];
+  const ac = answer.split('/').map(s=>s.trim());
+  const sc = student.split('/').map(s=>s.trim());
+  const diffs = [];
+  const len = Math.max(ac.length, sc.length);
+  for (let i=0; i<len; i++) {
+    const a = ac[i]||'(없음)', s = sc[i]||'(없음)';
+    if (a.toLowerCase() !== s.toLowerCase()) {
+      diffs.push({ pos: i+1, correct: a, wrong: s });
+    }
+  }
+  return diffs;
+}
+
+// 차이점에서 구체적 오류 패턴 감지
+function detectErrorPatterns(diffs) {
+  const patterns = [];
+  diffs.forEach(d => {
+    const c = d.correct.toLowerCase(), w = d.wrong.toLowerCase();
+    // 전치사 오류
+    const preps = ['in','on','at','to','for','with','from','of','by','about','into','onto'];
+    const cPreps = preps.filter(p=>c.includes(p));
+    const wPreps = preps.filter(p=>w.includes(p));
+    if (cPreps.length && wPreps.length && cPreps[0]!==wPreps[0]) patterns.push(`전치사 혼동: "${wPreps[0]}" → "${cPreps[0]}"`);
+    // 대명사 격 오류
+    const pronounMap = {i:'me',he:'him',she:'her',we:'us',they:'them',me:'i',him:'he',her:'she',us:'we',them:'they'};
+    const cWords = c.split(/\s+/), wWords = w.split(/\s+/);
+    wWords.forEach((ww,j) => { if (pronounMap[ww] && cWords[j] && cWords[j].toLowerCase()===pronounMap[ww]) patterns.push(`대명사 격 혼동: "${ww}" → "${cWords[j]}"`); });
+    // 어순 뒤집힘
+    if (cWords.length>=2 && wWords.length>=2) {
+      const cJoin = cWords.join(' '), wJoin = wWords.reverse().join(' ');
+      if (cJoin === wJoin) patterns.push('어순 뒤바뀜');
+    }
+    // 시제 오류
+    if ((c.includes('ed ')&&!w.includes('ed '))||(c.includes('ed')&&w.endsWith(c.replace(/ed$/,'')))) patterns.push('과거 시제 누락');
+    if (c.includes('s ')&&!w.includes('s ')&&cWords.some((cw,j)=>wWords[j]&&cw===wWords[j]+'s')) patterns.push('3인칭 단수 -s 누락');
+    // 단어 누락/추가
+    if (cWords.length > wWords.length+1) patterns.push(`단어 누락 (${cWords.length-wWords.length}개)`);
+    if (wWords.length > cWords.length+1) patterns.push(`불필요한 단어 추가`);
+    // 철자
+    if (c.length>2 && w.length>2 && Math.abs(c.length-w.length)<=2) {
+      let diff=0; for(let k=0;k<Math.min(c.length,w.length);k++) if(c[k]!==w[k]) diff++;
+      if (diff<=2 && diff>0) patterns.push(`철자 오류: "${d.wrong}" → "${d.correct}"`);
+    }
+  });
+  return [...new Set(patterns)];
+}
+
 function buildCurrentAnalysis(wrongs, name) {
   const tc = countTypes(wrongs);
   const total = wrongs.length;
-  const engPct = total?Math.round(tc.eng/total*100):0;
-  const ordPct = total?Math.round(tc.ord/total*100):0;
-  const korPct = total?Math.round(tc.kor/total*100):0;
   const areas = [{n:'영작하기',c:tc.eng,color:'var(--accent2)',bg:'var(--accent2-light)'},{n:'어순배열',c:tc.ord,color:'var(--gold)',bg:'var(--gold-light)'},{n:'해석',c:tc.kor,color:'#185FA5',bg:'#EAF1FB'}].sort((a,b)=>b.c-a.c);
 
-  // 유형별 차트
+  // 과거 오답에서 패턴 비교용
+  const studentName = document.getElementById('hw-student-sel')?.value || name;
+  const pastHW = db.homework.filter(h=>h.student===studentName && h.wrongs && h.wrongs.length);
+  const pastWrongs = pastHW.flatMap(h=>h.wrongs);
+  const pastTC = countTypes(pastWrongs);
+
   let chart = `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:12px 0">
     ${areas.map(a => `<div style="text-align:center;padding:10px;background:${a.bg};border-radius:var(--radius-sm);border:1px solid ${a.color}20">
       <div style="font-size:20px;font-weight:700;color:${a.color}">${a.c}</div>
@@ -2676,37 +2728,101 @@ function buildCurrentAnalysis(wrongs, name) {
     </div>`).join('')}
   </div>`;
 
-  // 문제별 분석
+  // 전체 오류 패턴 수집
+  const allPatterns = [];
+  const allDiffs = [];
+  const drillItems = [];
+
   let problems = wrongs.map((w,i) => {
-    const typeLabels = (w.types||[]).map(t => `<span style="padding:1px 6px;border-radius:8px;font-size:10px;background:${getTypeBg(t)};color:${getTypeColor(t)};font-weight:600">${getTypeLabel(t)}</span>`).join(' ');
-    let cause = '';
-    const ts = w.types||[];
-    if (ts.length===1) {
-      if (ts[0]==='eng') cause = '영어 문장 구조/문법/철자 오류. 정확한 표현 암기 필요';
-      else if (ts[0]==='ord') cause = '끊어읽기 순서 감각 부족. 영어 어순 → 한국어 직역 훈련 필요';
-      else cause = '한국어 의역이 부정확. 문맥 파악과 자연스러운 표현 연습 필요';
-    } else if (ts.length===2) {
-      cause = ts.map(getTypeLabel).join('+') + ' 동시 오류. 문장 구조 전반적 이해 부족';
-    } else if (ts.length>=3) {
-      cause = '세 영역 모두 오답. 해당 문장의 핵심 문법을 처음부터 다시 학습 필요';
-    }
-    return `<div style="padding:8px 10px;background:var(--surface);border-radius:6px;margin-bottom:6px;border-left:3px solid var(--accent2)">
+    const det = w.details || {};
+    const ts = w.types || [];
+    const typeLabels = ts.map(t => `<span style="padding:1px 6px;border-radius:8px;font-size:10px;background:${getTypeBg(t)};color:${getTypeColor(t)};font-weight:600">${getTypeLabel(t)}</span>`).join(' ');
+
+    let typeAnalysis = ts.map(t => {
+      const d = det[t];
+      if (!d) return '';
+      const diffs = analyzeChunkDiff(d.answer, d.studentAns);
+      const patterns = detectErrorPatterns(diffs);
+      allDiffs.push(...diffs);
+      allPatterns.push(...patterns);
+
+      const hl = highlightChunks(d.answer||'', d.studentAns||'');
+      let diffDetail = '';
+      if (diffs.length) {
+        diffDetail = diffs.map(df => `<div style="font-size:11px;margin-left:8px;color:var(--accent2)">· 청크${df.pos}: <s style="color:var(--accent2)">${df.wrong}</s> → <b style="color:var(--accent)">${df.correct}</b></div>`).join('');
+        // 드릴 아이템 수집
+        diffs.forEach(df => drillItems.push(df.correct));
+      }
+      let patternDetail = patterns.length ? `<div style="font-size:11px;margin-top:3px;padding:3px 8px;background:var(--accent2-light);border-radius:4px">${patterns.map(p=>`<span style="color:var(--accent2)">⚡ ${p}</span>`).join(' ')}</div>` : '';
+
+      return `<div style="margin-top:4px;padding:6px 8px;background:${getTypeBg(t)};border-radius:4px;border-left:2px solid ${getTypeColor(t)}">
+        <div style="font-size:10px;font-weight:600;color:${getTypeColor(t)};margin-bottom:2px">${getTypeLabel(t)}</div>
+        ${d.answer?`<div style="font-size:11px"><span style="color:var(--accent)">정답:</span> ${hl.ansHtml}</div>`:''}
+        ${d.studentAns?`<div style="font-size:11px"><span style="color:var(--accent2)">학생:</span> ${hl.stuHtml}</div>`:''}
+        ${diffDetail}${patternDetail}
+      </div>`;
+    }).join('');
+
+    return `<div style="padding:8px 10px;background:var(--surface);border-radius:6px;margin-bottom:8px;border-left:3px solid var(--accent2)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
         <b style="font-size:12px">${w.num||i+1}번</b>${typeLabels}
       </div>
-      ${w.answer?`<div style="font-size:11px;margin-bottom:2px"><span style="color:var(--accent)">정답:</span> ${w.answer}</div>`:''}
-      ${w.studentAns?`<div style="font-size:11px;margin-bottom:2px"><span style="color:var(--accent2)">학생:</span> ${w.studentAns}</div>`:''}
-      <div style="font-size:11px;color:var(--text2);margin-top:4px;padding-top:4px;border-top:1px dashed var(--border)">원인: ${cause}</div>
+      ${typeAnalysis}
     </div>`;
   }).join('');
 
-  // 해결방법
-  const weakest = areas[0];
-  let solution = '';
-  if (weakest.n==='영작하기') solution = '핵심 문장 패턴 반복 영작 연습, 주어+동사+목적어 기본 구조 확인, 자주 틀리는 문법 요소 집중 복습';
-  else if (weakest.n==='어순배열') solution = '영어 문장 슬래시(/) 끊어 읽기 연습, 주어/동사/목적어 덩어리 시각적 구분 훈련';
-  else solution = '틀린 문장 핵심 단어 암기, 문맥 파악 직독직해 연습, 자연스러운 한국어 표현 훈련';
+  // 패턴 빈도 정리
+  const patternCounts = {};
+  allPatterns.forEach(p => patternCounts[p] = (patternCounts[p]||0)+1);
+  const sortedPatterns = Object.entries(patternCounts).sort((a,b)=>b[1]-a[1]);
 
+  let patternSummary = sortedPatterns.length ? sortedPatterns.map(([p,c]) => {
+    const isRepeat = pastWrongs.length > 0;
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 8px;background:var(--surface);border-radius:4px;margin-bottom:3px;font-size:12px">
+      <span>⚡ ${p}</span>
+      <span class="badge badge-red" style="font-size:10px">${c}회</span>
+    </div>`;
+  }).join('') : '<div style="font-size:12px;color:var(--text3)">구체적 패턴 감지를 위해 정답/학생답안을 / 로 구분해서 입력해주세요</div>';
+
+  // 누적 비교
+  let cumulativeNote = '';
+  if (pastWrongs.length) {
+    const pastPatterns = [];
+    pastWrongs.forEach(pw => {
+      const det = pw.details||{};
+      (pw.types||[]).forEach(t => {
+        if (det[t]) {
+          const d = analyzeChunkDiff(det[t].answer, det[t].studentAns);
+          pastPatterns.push(...detectErrorPatterns(d));
+        }
+      });
+    });
+    const repeating = sortedPatterns.filter(([p])=>pastPatterns.includes(p));
+    const newOnes = sortedPatterns.filter(([p])=>!pastPatterns.includes(p));
+    if (repeating.length) cumulativeNote += `<div style="padding:6px 8px;background:var(--accent2-light);border-radius:4px;margin-bottom:4px;font-size:11px;border-left:3px solid var(--accent2)"><b>반복 실수:</b> ${repeating.map(([p,c])=>p).join(', ')} — 이전에도 같은 실수를 했습니다</div>`;
+    if (newOnes.length) cumulativeNote += `<div style="padding:6px 8px;background:var(--gold-light);border-radius:4px;margin-bottom:4px;font-size:11px;border-left:3px solid var(--gold)"><b>새로운 실수:</b> ${newOnes.map(([p])=>p).join(', ')}</div>`;
+  }
+
+  // 구체적 수업 조언
+  const uniqueDrills = [...new Set(drillItems)].slice(0,5);
+  let teacherAdvice = '';
+  if (uniqueDrills.length) {
+    teacherAdvice += `<div style="padding:8px;background:var(--accent-light);border-radius:6px;margin-bottom:6px;font-size:12px;border-left:3px solid var(--accent)">
+      <b>📣 다음 수업 시작 전 구두 확인:</b><br>
+      ${uniqueDrills.map(d=>`<span style="display:inline-block;padding:2px 8px;margin:2px;background:var(--surface);border-radius:4px;font-weight:500">${d}</span>`).join('')}
+    </div>`;
+  }
+  if (sortedPatterns.length) {
+    const topPattern = sortedPatterns[0][0];
+    if (topPattern.includes('전치사')) teacherAdvice += `<div style="font-size:12px;margin-bottom:4px">· 전치사 카드 만들기: 틀린 전치사 표현을 카드로 만들어 수업 시작 때 3장씩 퀴즈</div>`;
+    if (topPattern.includes('대명사')) teacherAdvice += `<div style="font-size:12px;margin-bottom:4px">· 대명사 격변환 표 그려놓고: "I→me, he→him" 구두로 빠르게 변환 연습</div>`;
+    if (topPattern.includes('시제')||topPattern.includes('-s')) teacherAdvice += `<div style="font-size:12px;margin-bottom:4px">· 동사 변환 드릴: 원형→과거→3인칭 빠르게 말하기 연습 (30초 타이머)</div>`;
+    if (topPattern.includes('어순')) teacherAdvice += `<div style="font-size:12px;margin-bottom:4px">· 단어 카드 섞어놓고 올바른 순서로 배열하기 게임</div>`;
+    if (topPattern.includes('철자')) teacherAdvice += `<div style="font-size:12px;margin-bottom:4px">· 틀린 단어 화이트보드에 3번 받아쓰기</div>`;
+  }
+  teacherAdvice += `<div style="font-size:12px">· 오늘 틀린 ${total}문장 정답만 모아서 다음 시간 시작 전 구두 테스트</div>`;
+
+  const weakest = areas[0];
   return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid var(--accent2)">
       <span style="font-size:16px">📊</span>
@@ -2714,24 +2830,13 @@ function buildCurrentAnalysis(wrongs, name) {
       <span class="badge badge-red">${total}문제</span>
     </div>
     ${chart}
-    <div style="margin:12px 0 6px;font-weight:700;color:var(--accent);font-size:13px;border-bottom:1px solid var(--border);padding-bottom:4px">📝 문제별 원인 분석</div>
+    <div style="margin:12px 0 6px;font-weight:700;color:var(--accent);font-size:13px;border-bottom:1px solid var(--border);padding-bottom:4px">📝 문제별 정답/학생답안 비교 분석</div>
     ${problems}
-    <div style="margin:12px 0 6px;font-weight:700;color:var(--accent);font-size:13px;border-bottom:1px solid var(--border);padding-bottom:4px">🎯 취약 영역</div>
-    <div style="font-size:12px;padding:8px;background:${weakest.bg};border-radius:6px;border-left:3px solid ${weakest.color}">
-      가장 취약: <b style="color:${weakest.color}">${weakest.n}</b> (${weakest.c}/${total}문제, ${total?Math.round(weakest.c/total*100):0}%)
-    </div>
-    <div style="margin:12px 0 6px;font-weight:700;color:var(--accent);font-size:13px;border-bottom:1px solid var(--border);padding-bottom:4px">💡 해결 방법</div>
-    <div style="font-size:12px;line-height:1.7">
-      <div style="margin-bottom:4px">1. <b>즉시 보강:</b> ${solution}</div>
-      <div style="margin-bottom:4px">2. <b>수업 활용:</b> 틀린 문장을 화이트보드에 쓰고 학생이 직접 풀어보게 하기</div>
-      <div>3. <b>추가 과제:</b> 틀린 ${total}문장을 정답 3회 반복 쓰기</div>
-    </div>
-    <div style="margin:12px 0 6px;font-weight:700;color:var(--accent);font-size:13px;border-bottom:1px solid var(--border);padding-bottom:4px">📚 추천 학습</div>
-    <div style="font-size:12px;line-height:1.7">
-      ${tc.eng?'<div>· 영작: 오답 문장의 핵심 문법 정리 → 유사 패턴 5문장 추가 연습</div>':''}
-      ${tc.ord?'<div>· 어순: 매일 3문장씩 끊어읽기 → 직역 순서 연습</div>':''}
-      ${tc.kor?'<div>· 해석: 틀린 문장 직독직해 후 자연스러운 의역 비교 연습</div>':''}
-    </div>
+    <div style="margin:12px 0 6px;font-weight:700;color:var(--accent2);font-size:13px;border-bottom:1px solid var(--border);padding-bottom:4px">⚡ 감지된 오류 패턴</div>
+    ${patternSummary}
+    ${cumulativeNote?`<div style="margin:10px 0 6px;font-weight:700;color:var(--gold);font-size:13px;border-bottom:1px solid var(--border);padding-bottom:4px">📈 이전 기록과 비교</div>${cumulativeNote}`:''}
+    <div style="margin:12px 0 6px;font-weight:700;color:var(--accent);font-size:13px;border-bottom:1px solid var(--border);padding-bottom:4px">🎯 수업에서 바로 쓰는 조언</div>
+    ${teacherAdvice}
   </div>`;
 }
 
@@ -2827,12 +2932,38 @@ function buildCumulativeAnalysis(allWrongs, pastHW, currentWrongs, name) {
     ${repeating?`<div style="margin-bottom:10px"><div style="font-weight:700;color:var(--accent2);font-size:13px;margin-bottom:6px;border-bottom:1px solid var(--border);padding-bottom:4px">🔄 반복되는 약점</div>${repeating}</div>`:''}
     ${newErrors?`<div style="margin-bottom:10px"><div style="font-weight:700;color:var(--gold);font-size:13px;margin-bottom:6px;border-bottom:1px solid var(--border);padding-bottom:4px">⚠️ 새로 나타난 오류</div>${newErrors}</div>`:''}
     ${improved?`<div style="margin-bottom:10px"><div style="font-weight:700;color:var(--accent);font-size:13px;margin-bottom:6px;border-bottom:1px solid var(--border);padding-bottom:4px">✅ 잘하게 된 부분</div>${improved}</div>`:''}
-    <div style="font-weight:700;color:var(--accent);font-size:13px;margin-bottom:6px;border-bottom:1px solid var(--border);padding-bottom:4px">💡 종합 학습 제안</div>
-    <div style="font-size:12px;line-height:1.7">
-      ${tc.eng?'<div>· 영작: 자주 틀리는 문법 패턴을 정리해서 매일 5문장 영작 연습</div>':''}
-      ${tc.ord?'<div>· 어순: 매일 3문장 끊어읽기 → 영어 순서대로 직역하는 연습</div>':''}
-      ${tc.kor?'<div>· 해석: 직독직해 후 자연스러운 의역 비교 연습</div>':''}
-    </div>
+    ${(()=>{
+      // 누적 오류 패턴 구체 분석
+      const cumPatterns = [];
+      allWrongs.forEach(w => {
+        const det = w.details||{};
+        (w.types||[]).forEach(t => {
+          if (det[t]) { cumPatterns.push(...detectErrorPatterns(analyzeChunkDiff(det[t].answer, det[t].studentAns))); }
+        });
+      });
+      const pc = {}; cumPatterns.forEach(p=>pc[p]=(pc[p]||0)+1);
+      const sorted = Object.entries(pc).sort((a,b)=>b[1]-a[1]).slice(0,6);
+      if (!sorted.length) return '';
+      const drills = [];
+      sorted.forEach(([p,c])=>{
+        if (p.includes('전치사')) drills.push('전치사 구두 퀴즈: 매 수업 시작 3분');
+        if (p.includes('대명사')) drills.push('대명사 격변환 빠르게 말하기 30초 드릴');
+        if (p.includes('시제')||p.includes('-s')) drills.push('동사 변환 드릴 (원형→과거→3인칭)');
+        if (p.includes('어순')) drills.push('단어 카드 배열 게임');
+        if (p.includes('철자')) drills.push('틀린 단어 받아쓰기 3회');
+      });
+      return `<div style="margin-bottom:10px">
+        <div style="font-weight:700;color:var(--accent2);font-size:13px;margin-bottom:6px;border-bottom:1px solid var(--border);padding-bottom:4px">⚡ 누적 오류 패턴 TOP</div>
+        ${sorted.map(([p,c])=>`<div style="display:flex;justify-content:space-between;padding:4px 8px;background:var(--surface);border-radius:4px;margin-bottom:3px;font-size:12px"><span>${p}</span><span class="badge badge-red" style="font-size:10px">${c}회</span></div>`).join('')}
+      </div>
+      <div style="margin-bottom:10px">
+        <div style="font-weight:700;color:var(--accent);font-size:13px;margin-bottom:6px;border-bottom:1px solid var(--border);padding-bottom:4px">🎯 LT 수업 구체적 조언</div>
+        ${[...new Set(drills)].map(d=>`<div style="font-size:12px;padding:4px 8px;background:var(--accent-light);border-radius:4px;margin-bottom:3px;border-left:3px solid var(--accent)">📣 ${d}</div>`).join('')}
+        <div style="font-size:12px;margin-top:4px;padding:6px 8px;background:var(--gold-light);border-radius:4px;border-left:3px solid var(--gold)">
+          💡 가장 많이 반복되는 "<b>${sorted[0][0]}</b>" (${sorted[0][1]}회) — 이 패턴을 집중 교정하면 오답의 ${total?Math.round(sorted[0][1]/total*100):0}%가 줄어듭니다
+        </div>
+      </div>`;
+    })()}
   </div>`;
 }
 
