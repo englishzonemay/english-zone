@@ -1716,25 +1716,7 @@ function showStudentDetail(id) {
   const weakest = tc.eng>=tc.ord&&tc.eng>=tc.kor?'영작':tc.ord>=tc.kor?'어순':'해석';
   const avgStars = allHW.length ? (allHW.reduce((a,h)=>a+h.stars,0)/allHW.length) : 0;
 
-  // === 2. 이번 주 추천 ===
-  const recs = [];
-  if (tc[weakest==='영작'?'eng':weakest==='어순'?'ord':'kor'] > 0) {
-    recs.push({ action: `${weakest} 취약 문장 3개 골라 반복 연습시키기`, reason: `최근 오답 중 ${weakest} 유형이 가장 많음 (${tc[weakest==='영작'?'eng':weakest==='어순'?'ord':'kor']}건)` });
-  }
-  if (goodExp.length) {
-    const last = goodExp[goodExp.length-1];
-    recs.push({ action: `"${last.method}" 다시 시도하기`, reason: `이전에 효과있었던 방법 (${last.date})` });
-  }
-  if (s.talk) {
-    const topics = s.talk.split(',').map(t=>t.trim());
-    recs.push({ action: `${topics[0]} 이야기로 수업 전 스몰톡`, reason: `라포 형성용 — 학생 관심사` });
-  }
-  if (avgStars < 3 && allHW.length >= 2) {
-    recs.push({ action: '숙제 양 줄이고 질 높이기', reason: `숙제 평균 ★${avgStars.toFixed(1)}로 낮음, 부담 줄여야 동기 유지` });
-  }
-  if (!recs.length) recs.push({ action: '학생 관찰 기록 쌓기', reason: '데이터가 쌓이면 더 정확한 추천이 가능합니다' });
-
-  // === 3. 코칭 전략 카드 ===
+  // === 코칭 전략 카드 ===
   let strategyTable = '';
   if (goodExp.length || badExp.length) {
     const goodRows = goodExp.slice(-3).map(e=>`<tr><td style="color:var(--accent)">✓</td><td>${e.method}</td><td style="font-size:11px;color:var(--text2)">${e.result}</td></tr>`).join('');
@@ -1781,24 +1763,6 @@ function showStudentDetail(id) {
     ${s.trait?`<div class="detail-section"><h4>성향</h4><p style="font-size:13px">${s.trait}</p></div>`:''}
     ${s.note?`<div class="detail-section"><h4>주의사항</h4><p style="font-size:13px;color:var(--accent2)">${s.note}</p></div>`:''}
     ${s.talk?`<div class="detail-section"><h4>스몰톡 소재</h4>${s.talk.split(',').map(t=>`<span class="tag">${t.trim()}</span>`).join('')}</div>`:''}
-
-    <!-- 이번 주 추천 -->
-    <div class="coach-section" style="background:var(--gold-light);border:1px solid #e8d8a0">
-      <div class="coach-header open" onclick="this.classList.toggle('open');this.nextElementSibling.style.display=this.classList.contains('open')?'block':'none'" style="color:var(--gold)">
-        <span class="ch-arrow">▶</span> 💡 이번 주 시도해볼 것
-      </div>
-      <div class="coach-body" style="background:white">
-        ${recs.slice(0,3).map((r,i) => `<div class="coach-card" style="border-left-color:var(--gold);background:var(--gold-light)">
-          <div style="display:flex;align-items:flex-start;gap:8px">
-            <span style="background:var(--gold);color:white;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${i+1}</span>
-            <div>
-              <div style="font-weight:600;margin-bottom:2px">${r.action}</div>
-              <div style="font-size:11px;color:var(--text2)">근거: ${r.reason}</div>
-            </div>
-          </div>
-        </div>`).join('')}
-      </div>
-    </div>
 
     <!-- 코칭 전략 카드 -->
     <div class="coach-section" style="background:#EAF1FB;border:1px solid #b8d4f0">
