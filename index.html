@@ -914,10 +914,9 @@ body {
     <div id="page-homework" style="display:none">
       <div class="page-header">
         <div>
-          <div class="page-title">숙제 체크</div>
-          <div class="page-subtitle" id="homework-subtitle"></div>
+          <div class="page-title">숙제 검사</div>
+          <div class="page-subtitle" id="homework-subtitle">전체 기록 보기 (입력은 학생 카드 → 수업 일지에서)</div>
         </div>
-        <button class="btn btn-primary" onclick="openAddHW()">+ 오늘 기록</button>
       </div>
       <div class="date-filter" id="hw-date-filter">
         <button class="df-btn active" onclick="setDateFilter('hw','all',this)">전체</button>
@@ -928,7 +927,7 @@ body {
       <div class="card">
         <table class="hw-table">
           <thead><tr>
-            <th>날짜</th><th>학생</th><th>반</th><th>퀄리티</th><th>리딩 횟수</th><th>틀린 문제</th><th>AI 분석</th><th>특이사항</th><th></th>
+            <th>날짜</th><th>학생</th><th>반</th><th>퀄리티</th><th>리딩 횟수</th><th>틀린 문제</th><th>AI 분석</th><th>특이사항</th>
           </tr></thead>
           <tbody id="hw-table-body"></tbody>
         </table>
@@ -2023,7 +2022,7 @@ function renderHomework() {
 
   if (!hw.length) {
     document.getElementById('hw-table-body').innerHTML =
-      '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text3)">기록이 없어요</td></tr>';
+      '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text3)">기록이 없어요. 학생 카드 → 수업 일지에서 입력하세요.</td></tr>';
     document.getElementById('hw-weakness-analysis').innerHTML = '';
     return;
   }
@@ -2040,7 +2039,6 @@ function renderHomework() {
       <td>${wrongCount ? `<span class="badge badge-red" style="cursor:pointer" onclick="showWrongDetail('${h.id}')">${wrongCount}문제</span>` : '<span style="color:var(--text3)">—</span>'}</td>
       <td>${h.aiAnalysis ? `<span class="badge badge-blue" style="cursor:pointer;font-size:10px" onclick="showAIAnalysis('${h.id}')">분석보기</span>` : '<span style="color:var(--text3)">—</span>'}</td>
       <td style="color:var(--text2);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${h.memo||'—'}</td>
-      <td><button class="btn btn-sm" onclick="openEditHW('${h.id}')" style="white-space:nowrap">수정</button></td>
     </tr>`;
   }).join('');
   renderWeaknessAnalysis(hw);
@@ -2368,28 +2366,66 @@ function renderLessonSection(s) {
         </div>
         <div class="field" style="margin-bottom:6px"><label>어려워한 부분</label><textarea id="ll-hard-${s.id}" style="height:50px" placeholder="자유 작성"></textarea></div>
         <div class="field" style="margin-bottom:6px"><label>특이사항</label><textarea id="ll-note-${s.id}" style="height:50px" placeholder="자유 작성"></textarea></div>
-        <div style="display:flex;gap:8px;justify-content:flex-end">
+
+        <!-- 숙제 퀄리티 섹션 -->
+        <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--border)">
+          <div style="font-size:11px;font-weight:700;color:var(--accent2);text-transform:uppercase;margin-bottom:8px">📝 숙제 검사</div>
+          <div class="field" style="margin-bottom:6px">
+            <label>숙제 퀄리티 (별점)</label>
+            <div class="stars" id="hw-stars">
+              <span class="star" onclick="setStar(1)">★</span>
+              <span class="star" onclick="setStar(2)">★</span>
+              <span class="star" onclick="setStar(3)">★</span>
+              <span class="star" onclick="setStar(4)">★</span>
+              <span class="star" onclick="setStar(5)">★</span>
+            </div>
+          </div>
+          <div class="field" style="margin-bottom:6px"><label>리딩 횟수 (선택)</label><input type="number" id="hw-read" min="0" placeholder="예: 15" style="width:120px" /></div>
+          <div style="margin-bottom:8px">
+            <button type="button" class="wrong-collapse-btn" id="hw-wrong-toggle" onclick="toggleWrongList()">
+              <span class="arrow">▶</span> 온라인 틀린 문제 (<span id="hw-wrong-count">0</span>개)
+            </button>
+            <div id="hw-wrong-wrap" style="display:none;margin-top:8px">
+              <div id="hw-wrong-list"></div>
+              <button type="button" class="btn btn-sm" onclick="addWrongItem()" style="margin-top:6px">+ 틀린 문제 추가</button>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;margin-bottom:8px">
+            <button type="button" class="btn btn-sm" onclick="analyzeWrongPattern('current')" style="flex:1;background:var(--accent2-light);color:var(--accent2);border-color:var(--accent2)">이번 회차 분석</button>
+            <button type="button" class="btn btn-sm" onclick="analyzeWrongPattern('cumulative')" style="flex:1;background:var(--accent-light);color:var(--accent);border-color:var(--accent)">누적 분석</button>
+          </div>
+          <div id="hw-ai-analysis" style="margin-bottom:8px"></div>
+          <input type="hidden" id="hw-edit-id" value="" />
+          <input type="hidden" id="hw-student-sel" value="${s.name}" />
+          <input type="hidden" id="hw-memo" value="" />
+        </div>
+
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
           <button class="btn" onclick="toggleLessonForm('${s.id}')">취소</button>
           <button class="btn btn-primary" onclick="saveLesson('${s.id}')">저장</button>
         </div>
       </div>
       <!-- 일지 리스트 -->
-      ${displayed.length?displayed.map(l=>`<div style="padding:10px 12px;background:var(--surface);border-radius:6px;margin-bottom:6px;border-left:3px solid ${l.mood==='좋음'?'var(--accent)':l.mood==='나쁨'?'var(--accent2)':'var(--gold)'}" id="lesson-item-${l.id}">
+      ${displayed.length?displayed.map(l=>{
+        const wrongCount = (l.wrongs||[]).length;
+        const hwLink = l.hwId ? db.homework.find(h=>h.id===l.hwId) : null;
+        return `<div style="padding:10px 12px;background:var(--surface);border-radius:6px;margin-bottom:6px;border-left:3px solid ${l.mood==='좋음'?'var(--accent)':l.mood==='나쁨'?'var(--accent2)':'var(--gold)'}" id="lesson-item-${l.id}">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-          <div style="display:flex;align-items:center;gap:6px">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
             <b style="font-size:12px">${l.date}</b>
             ${l.mood?`<span class="badge" style="font-size:10px;background:${l.mood==='좋음'?'var(--accent-light)':l.mood==='나쁨'?'var(--accent2-light)':'var(--gold-light)'};color:${l.mood==='좋음'?'var(--accent)':l.mood==='나쁨'?'var(--accent2)':'var(--gold)'}">${l.mood==='좋음'?'😊':l.mood==='나쁨'?'😟':'😐'} ${l.mood}</span>`:''}
             ${l.onlineMin?`<span class="badge badge-gray" style="font-size:10px">온라인 ${l.onlineMin}분</span>`:''}
             ${l.havruta?`<span class="badge ${l.havruta==='완료'?'badge-green':'badge-red'}" style="font-size:10px">하브루타 ${l.havruta}</span>`:''}
+            ${hwLink?`<span style="font-size:11px;color:${hwLink.stars>=4?'var(--accent)':hwLink.stars>=3?'var(--gold)':'var(--accent2)'}">${'★'.repeat(hwLink.stars)}${'☆'.repeat(5-hwLink.stars)}</span>`:''}
+            ${wrongCount?`<span class="badge badge-red" style="font-size:10px;cursor:pointer" onclick="event.stopPropagation();showWrongDetail('${l.hwId}')">오답 ${wrongCount}</span>`:''}
           </div>
           <div style="display:flex;gap:4px">
-            <button class="btn btn-sm" onclick="event.stopPropagation();editLesson('${l.id}','${s.id}')" style="font-size:10px;padding:3px 8px">수정</button>
             <button class="btn btn-sm" onclick="event.stopPropagation();deleteLesson('${l.id}','${s.id}')" style="font-size:10px;padding:3px 8px;color:var(--accent2);border-color:var(--accent2)">삭제</button>
           </div>
         </div>
         ${l.hard?`<div style="font-size:11px;color:var(--text2);margin-top:4px"><b>어려워한 부분:</b> ${l.hard}</div>`:''}
         ${l.memo?`<div style="font-size:11px;color:var(--text2);margin-top:2px"><b>특이사항:</b> ${l.memo}</div>`:''}
-      </div>`).join(''):'<p style="font-size:12px;color:var(--text3)">기록 없음</p>'}
+      </div>`;}).join(''):'<p style="font-size:12px;color:var(--text3)">기록 없음</p>'}
       ${lessons.length>3?`<button class="btn btn-sm" onclick="toggleLessonShowAll('${s.id}')" style="width:100%;margin-top:6px">${showAll?'접기':`더보기 (+${lessons.length-3}건)`}</button>`:''}
     </div>
   </div>`;
@@ -2397,7 +2433,19 @@ function renderLessonSection(s) {
 
 function toggleLessonForm(sid) {
   const f = document.getElementById('lesson-form-'+sid);
-  f.style.display = f.style.display==='none'?'block':'none';
+  const opening = f.style.display==='none';
+  f.style.display = opening?'block':'none';
+  if (opening) {
+    // 숙제 입력 초기화
+    setStar(3);
+    document.getElementById('hw-wrong-list').innerHTML = '';
+    document.getElementById('hw-wrong-count').textContent = '0';
+    document.getElementById('hw-wrong-wrap').style.display = 'none';
+    document.getElementById('hw-wrong-toggle').classList.remove('open');
+    document.getElementById('hw-ai-analysis').innerHTML = '';
+    document.getElementById('hw-ai-analysis').removeAttribute('data-analysis');
+    wrongCounter = 0;
+  }
 }
 
 function pickLessonChip(el, field, sid) {
@@ -2415,25 +2463,57 @@ function pickLessonChip(el, field, sid) {
 
 function saveLesson(sid) {
   if (!db.lessons) db.lessons = [];
+  if (!db.homework) db.homework = [];
   const s = db.students.find(s=>s.id===sid);
   if (!s) return;
+  const date = document.getElementById('ll-date-'+sid).value;
+  const wrongs = collectWrongs();
+  const aiEl = document.getElementById('hw-ai-analysis');
+  const aiAnalysis = aiEl?.dataset?.analysis || '';
+  const readVal = document.getElementById('hw-read').value;
+  const memo = document.getElementById('ll-note-'+sid).value;
+
+  const lessonId = 'les_'+Date.now();
+  const hwId = 'hw_'+(Date.now()+1);
+
+  // 숙제 기록 (별점 또는 오답이 있으면)
+  if (hwStar !== 3 || wrongs.length || readVal) {
+    db.homework.push({
+      id: hwId,
+      lessonId,
+      date,
+      student: s.name,
+      stars: hwStar,
+      read: readVal||'',
+      wrongs,
+      aiAnalysis,
+      memo
+    });
+  }
+
+  // 수업 일지
   db.lessons.push({
-    id: 'les_'+Date.now(),
+    id: lessonId,
+    hwId: (hwStar !== 3 || wrongs.length || readVal) ? hwId : '',
     studentId: sid,
     student: s.name,
-    date: document.getElementById('ll-date-'+sid).value,
+    date,
     onlineMin: parseInt(document.getElementById('ll-online-'+sid).value)||0,
     havruta: document.getElementById('ll-hv-'+sid).value,
     mood: document.getElementById('ll-mood-'+sid).value,
     hard: document.getElementById('ll-hard-'+sid).value,
-    memo: document.getElementById('ll-note-'+sid).value
+    memo,
+    stars: hwStar,
+    wrongs
   });
   saveDB();
   showStudentDetail(sid);
 }
 
 function deleteLesson(lid, sid) {
-  if (!confirm('이 수업 일지를 삭제할까요?')) return;
+  if (!confirm('이 수업 일지를 삭제할까요? (연결된 숙제 기록도 함께 삭제됩니다)')) return;
+  const l = db.lessons.find(l=>l.id===lid);
+  if (l && l.hwId) db.homework = (db.homework||[]).filter(h=>h.id!==l.hwId);
   db.lessons = (db.lessons||[]).filter(l=>l.id!==lid);
   saveDB();
   showStudentDetail(sid);
