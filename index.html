@@ -1814,18 +1814,6 @@ function showStudentDetail(id) {
       </div>
     </div>
 
-    <!-- 저장된 AI 조언 -->
-    <div class="coach-section" style="background:#F3E8FF;border:1px solid #d4b8f0">
-      <div class="coach-header" onclick="this.classList.toggle('open');this.nextElementSibling.style.display=this.classList.contains('open')?'block':'none'" style="color:#6A1B9A">
-        <span class="ch-arrow">▶</span> 📌 저장된 AI 조언
-        <span class="badge badge-gray" style="font-size:10px;margin-left:auto">${(db.ainotes||[]).filter(n=>n.student===s.name).length}건</span>
-      </div>
-      <div class="coach-body" style="display:none;background:white">
-        ${renderStudentAINotes(s.name)}
-        <button class="btn btn-sm" onclick="currentMenu='ainotes';aiNotesFilter='all';closeModal('modal-student-detail');renderPage()" style="margin-top:6px;width:100%">전체 AI 노트 보기</button>
-      </div>
-    </div>
-
     <!-- 보충 기록 -->
     ${(()=>{
       if (!db.supplements) db.supplements = [];
