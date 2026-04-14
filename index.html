@@ -1074,9 +1074,7 @@ body {
   </div>
   <!-- 일반반 전용 -->
   <div id="s-normal-fields">
-    <div class="field"><label>성향 / 관찰 내용</label><textarea id="s-trait" placeholder="예: 욕심은 있으나 속도 느림, 모르는 부분 넘어가기 어려워함"></textarea></div>
-    <div class="field"><label>주의사항</label><textarea id="s-note" placeholder="예: 너무 다그치면 다음날 결석 가능성, 화보다 친밀감으로 접근"></textarea></div>
-    <div class="field"><label>스몰톡 소재 (라포 형성용)</label><input id="s-talk" placeholder="예: 동생, 축구, 게임"></div>
+    <p style="font-size:11px;color:var(--text3);margin-top:6px">💡 성향, 주의사항, 스몰톡 소재는 학생 등록 후 학생 카드 상세에서 작성할 수 있습니다.</p>
   </div>
   <div class="modal-footer">
     <button class="btn" onclick="closeModal('modal-add-student')">취소</button>
@@ -1234,7 +1232,8 @@ let db = {
   experiments: [],
   supplements: [],
   ainotes: [],
-  vocabTests: []
+  vocabTests: [],
+  lessons: []
 };
 let currentClass = 'all';
 let currentMenu = 'overview';
@@ -1266,6 +1265,7 @@ function loadDB() {
     db.supplements = parsed.supplements || [];
     db.ainotes = parsed.ainotes || [];
     db.vocabTests = parsed.vocabTests || [];
+    db.lessons = parsed.lessons || [];
   }
   // 완전히 비어있을 때만 샘플 추가
   if (!db.classes.length && !db.students.length && !db.homework.length) {
@@ -1852,10 +1852,22 @@ function showStudentDetail(id) {
       </div>
     </div>
 
-    <!-- 기본 정보 표시 -->
-    ${s.trait?`<div class="detail-section"><h4>성향</h4><p style="font-size:13px">${s.trait}</p></div>`:''}
-    ${s.note?`<div class="detail-section"><h4>주의사항</h4><p style="font-size:13px;color:var(--accent2)">${s.note}</p></div>`:''}
-    ${s.talk?`<div class="detail-section"><h4>스몰톡 소재</h4>${s.talk.split(',').map(t=>`<span class="tag">${t.trim()}</span>`).join('')}</div>`:''}
+    <!-- 고정 정보 섹션 -->
+    <div class="coach-section" style="background:var(--surface2);border:1px solid var(--border)">
+      <div class="coach-header open" onclick="this.classList.toggle('open');this.nextElementSibling.style.display=this.classList.contains('open')?'block':'none'" style="color:var(--text);background:var(--surface)">
+        <span class="ch-arrow" style="transform:rotate(90deg)">▶</span> 📌 고정 정보
+      </div>
+      <div class="coach-body" style="background:white">
+        ${s.mbti?`<div style="padding:8px 10px;background:#EAF1FB;border-left:3px solid #185FA5;border-radius:6px;margin-bottom:6px;font-size:12px"><b style="color:#185FA5">MBTI</b> · ${s.mbti}</div>`:''}
+        ${s.trait?`<div style="padding:8px 10px;background:var(--accent-light);border-left:3px solid var(--accent);border-radius:6px;margin-bottom:6px;font-size:12px"><b style="color:var(--accent)">성향 요약</b><br>${s.trait}</div>`:''}
+        ${s.note?`<div style="padding:8px 10px;background:var(--accent2-light);border-left:3px solid var(--accent2);border-radius:6px;margin-bottom:6px;font-size:12px"><b style="color:var(--accent2)">주의사항</b><br>${s.note}</div>`:''}
+        ${s.talk?`<div style="padding:8px 10px;background:var(--gold-light);border-left:3px solid var(--gold);border-radius:6px;margin-bottom:6px;font-size:12px"><b style="color:var(--gold)">스몰톡 소재</b><br>${s.talk.split(',').map(t=>`<span class="tag">${t.trim()}</span>`).join('')}</div>`:''}
+        ${!s.mbti&&!s.trait&&!s.note&&!s.talk?'<p style="font-size:12px;color:var(--text3);margin:0">상단 "수정" 버튼으로 정보를 입력하세요.</p>':''}
+      </div>
+    </div>
+
+    <!-- 수업 일지 섹션 -->
+    ${renderLessonSection(s)}
 
     <!-- 코칭 전략 카드 -->
     <div class="coach-section" style="background:#EAF1FB;border:1px solid #b8d4f0">
@@ -2314,6 +2326,144 @@ function toggleStudentEdit(id) {
   form.style.display = form.style.display === 'none' ? 'block' : 'none';
 }
 
+// ===== 수업 일지 =====
+let lessonShowAll = {};
+
+function renderLessonSection(s) {
+  if (!db.lessons) db.lessons = [];
+  const lessons = db.lessons.filter(l=>l.studentId===s.id).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const showAll = lessonShowAll[s.id];
+  const displayed = showAll ? lessons : lessons.slice(0,3);
+  const today = new Date().toISOString().split('T')[0];
+
+  return `<div class="coach-section" style="background:var(--accent-light);border:1px solid #c5dac9">
+    <div class="coach-header open" onclick="this.classList.toggle('open');this.nextElementSibling.style.display=this.classList.contains('open')?'block':'none'" style="color:var(--accent)">
+      <span class="ch-arrow" style="transform:rotate(90deg)">▶</span> 📘 수업 일지
+      <span class="badge badge-gray" style="font-size:10px;margin-left:auto">${lessons.length}건</span>
+    </div>
+    <div class="coach-body" style="background:white">
+      <!-- 입력 폼 (토글) -->
+      <button class="btn btn-sm btn-primary" onclick="toggleLessonForm('${s.id}')" style="width:100%;margin-bottom:10px">+ 오늘 수업 기록</button>
+      <div id="lesson-form-${s.id}" style="display:none;background:var(--surface2);border-radius:6px;padding:12px;margin-bottom:10px">
+        <div class="field-row" style="margin-bottom:6px">
+          <div class="field" style="margin-bottom:0"><label>날짜</label><input type="date" id="ll-date-${s.id}" value="${today}" /></div>
+          <div class="field" style="margin-bottom:0"><label>온라인 소요 시간(분)</label><input type="number" id="ll-online-${s.id}" min="0" placeholder="예: 30" /></div>
+        </div>
+        <div class="field" style="margin-bottom:6px">
+          <label>하브루타</label>
+          <div style="display:flex;gap:6px">
+            <button type="button" class="type-chip" data-hv="완료" onclick="pickLessonChip(this,'hv','${s.id}')">완료</button>
+            <button type="button" class="type-chip" data-hv="미완료" onclick="pickLessonChip(this,'hv','${s.id}')">미완료</button>
+          </div>
+          <input type="hidden" id="ll-hv-${s.id}" value="" />
+        </div>
+        <div class="field" style="margin-bottom:6px">
+          <label>오늘 컨디션/분위기</label>
+          <div style="display:flex;gap:6px">
+            <button type="button" class="type-chip" data-mood="좋음" onclick="pickLessonChip(this,'mood','${s.id}')">😊 좋음</button>
+            <button type="button" class="type-chip" data-mood="보통" onclick="pickLessonChip(this,'mood','${s.id}')">😐 보통</button>
+            <button type="button" class="type-chip" data-mood="나쁨" onclick="pickLessonChip(this,'mood','${s.id}')">😟 나쁨</button>
+          </div>
+          <input type="hidden" id="ll-mood-${s.id}" value="" />
+        </div>
+        <div class="field" style="margin-bottom:6px"><label>어려워한 부분</label><textarea id="ll-hard-${s.id}" style="height:50px" placeholder="자유 작성"></textarea></div>
+        <div class="field" style="margin-bottom:6px"><label>특이사항</label><textarea id="ll-note-${s.id}" style="height:50px" placeholder="자유 작성"></textarea></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button class="btn" onclick="toggleLessonForm('${s.id}')">취소</button>
+          <button class="btn btn-primary" onclick="saveLesson('${s.id}')">저장</button>
+        </div>
+      </div>
+      <!-- 일지 리스트 -->
+      ${displayed.length?displayed.map(l=>`<div style="padding:10px 12px;background:var(--surface);border-radius:6px;margin-bottom:6px;border-left:3px solid ${l.mood==='좋음'?'var(--accent)':l.mood==='나쁨'?'var(--accent2)':'var(--gold)'}" id="lesson-item-${l.id}">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <div style="display:flex;align-items:center;gap:6px">
+            <b style="font-size:12px">${l.date}</b>
+            ${l.mood?`<span class="badge" style="font-size:10px;background:${l.mood==='좋음'?'var(--accent-light)':l.mood==='나쁨'?'var(--accent2-light)':'var(--gold-light)'};color:${l.mood==='좋음'?'var(--accent)':l.mood==='나쁨'?'var(--accent2)':'var(--gold)'}">${l.mood==='좋음'?'😊':l.mood==='나쁨'?'😟':'😐'} ${l.mood}</span>`:''}
+            ${l.onlineMin?`<span class="badge badge-gray" style="font-size:10px">온라인 ${l.onlineMin}분</span>`:''}
+            ${l.havruta?`<span class="badge ${l.havruta==='완료'?'badge-green':'badge-red'}" style="font-size:10px">하브루타 ${l.havruta}</span>`:''}
+          </div>
+          <div style="display:flex;gap:4px">
+            <button class="btn btn-sm" onclick="event.stopPropagation();editLesson('${l.id}','${s.id}')" style="font-size:10px;padding:3px 8px">수정</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation();deleteLesson('${l.id}','${s.id}')" style="font-size:10px;padding:3px 8px;color:var(--accent2);border-color:var(--accent2)">삭제</button>
+          </div>
+        </div>
+        ${l.hard?`<div style="font-size:11px;color:var(--text2);margin-top:4px"><b>어려워한 부분:</b> ${l.hard}</div>`:''}
+        ${l.memo?`<div style="font-size:11px;color:var(--text2);margin-top:2px"><b>특이사항:</b> ${l.memo}</div>`:''}
+      </div>`).join(''):'<p style="font-size:12px;color:var(--text3)">기록 없음</p>'}
+      ${lessons.length>3?`<button class="btn btn-sm" onclick="toggleLessonShowAll('${s.id}')" style="width:100%;margin-top:6px">${showAll?'접기':`더보기 (+${lessons.length-3}건)`}</button>`:''}
+    </div>
+  </div>`;
+}
+
+function toggleLessonForm(sid) {
+  const f = document.getElementById('lesson-form-'+sid);
+  f.style.display = f.style.display==='none'?'block':'none';
+}
+
+function pickLessonChip(el, field, sid) {
+  const val = el.dataset[field];
+  const hidden = document.getElementById(`ll-${field}-${sid}`);
+  const curVal = hidden.value;
+  if (curVal === val) {
+    hidden.value = '';
+    el.parentElement.querySelectorAll('.type-chip').forEach(c=>c.classList.remove('on-eng'));
+  } else {
+    hidden.value = val;
+    el.parentElement.querySelectorAll('.type-chip').forEach(c=>c.classList.toggle('on-eng', c.dataset[field]===val));
+  }
+}
+
+function saveLesson(sid) {
+  if (!db.lessons) db.lessons = [];
+  const s = db.students.find(s=>s.id===sid);
+  if (!s) return;
+  db.lessons.push({
+    id: 'les_'+Date.now(),
+    studentId: sid,
+    student: s.name,
+    date: document.getElementById('ll-date-'+sid).value,
+    onlineMin: parseInt(document.getElementById('ll-online-'+sid).value)||0,
+    havruta: document.getElementById('ll-hv-'+sid).value,
+    mood: document.getElementById('ll-mood-'+sid).value,
+    hard: document.getElementById('ll-hard-'+sid).value,
+    memo: document.getElementById('ll-note-'+sid).value
+  });
+  saveDB();
+  showStudentDetail(sid);
+}
+
+function deleteLesson(lid, sid) {
+  if (!confirm('이 수업 일지를 삭제할까요?')) return;
+  db.lessons = (db.lessons||[]).filter(l=>l.id!==lid);
+  saveDB();
+  showStudentDetail(sid);
+}
+
+function editLesson(lid, sid) {
+  const l = db.lessons.find(l=>l.id===lid);
+  if (!l) return;
+  toggleLessonForm(sid);
+  document.getElementById('ll-date-'+sid).value = l.date||'';
+  document.getElementById('ll-online-'+sid).value = l.onlineMin||'';
+  document.getElementById('ll-hv-'+sid).value = l.havruta||'';
+  document.getElementById('ll-mood-'+sid).value = l.mood||'';
+  document.getElementById('ll-hard-'+sid).value = l.hard||'';
+  document.getElementById('ll-note-'+sid).value = l.memo||'';
+  // 칩 강조 복원
+  ['hv','mood'].forEach(f => {
+    const v = l[f==='hv'?'havruta':'mood'];
+    document.querySelectorAll(`#lesson-form-${sid} .type-chip[data-${f}]`).forEach(c => c.classList.toggle('on-eng', c.dataset[f]===v));
+  });
+  // 삭제 후 저장하면 수정이 되도록, 임시로 기존 항목 삭제
+  db.lessons = db.lessons.filter(x=>x.id!==lid);
+  saveDB();
+}
+
+function toggleLessonShowAll(sid) {
+  lessonShowAll[sid] = !lessonShowAll[sid];
+  showStudentDetail(sid);
+}
+
 function deleteStudent(id) {
   const s = db.students.find(s=>s.id===id);
   if (!s) return;
@@ -2321,6 +2471,7 @@ function deleteStudent(id) {
   db.homework = db.homework.filter(h=>h.student!==s.name);
   db.experiments = db.experiments.filter(e=>e.student!==s.name);
   if (db.supplements) db.supplements = db.supplements.filter(sp=>sp.student!==s.name);
+  if (db.lessons) db.lessons = db.lessons.filter(l=>l.studentId!==id && l.student!==s.name);
   db.students = db.students.filter(st=>st.id!==id);
   saveDB();
   closeModal('modal-student-detail');
@@ -2624,14 +2775,14 @@ function saveStudent() {
     mbti: document.getElementById('s-mbti').value,
     days: isVocab ? days : [],
     vocabTime: isVocab ? vocabTime : '',
-    trait: document.getElementById('s-trait').value,
-    note: document.getElementById('s-note').value,
-    talk: document.getElementById('s-talk').value
+    trait: '',
+    note: '',
+    talk: ''
   });
   saveDB();
   renderPage();
   closeModal('modal-add-student');
-  ['s-name','s-trait','s-note','s-talk'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('s-name').value='';
   document.getElementById('s-mbti').value='';
 }
 
