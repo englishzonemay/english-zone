@@ -3955,12 +3955,8 @@ function buildCurrentAnalysis(wrongs, name) {
   const typeRows = ['eng','ord','kor'].map(k => ({k, c: tc[k], ...TYPE_STYLE[k]}))
     .filter(r => r.c > 0)
     .sort((a,b) => b.c - a.c);
-  const typeSummary = typeRows.length ? `<div style="display:flex;flex-direction:column;gap:3px">
-    ${typeRows.map(r => `<div style="display:flex;align-items:center;gap:8px;padding:5px 10px;background:var(--surface2);border-radius:6px;border-left:3px solid ${r.color};font-size:12px">
-      <span style="flex:1">${r.label}</span>
-      <b style="color:${r.color}">${r.c}문제</b>
-      <span style="color:var(--text3);font-size:10px;min-width:34px;text-align:right">${Math.round(r.c/total*100)}%</span>
-    </div>`).join('')}
+  const typeSummary = typeRows.length ? `<div>
+    ${typeRows.map(r => `<div style="padding:12px 0;border-bottom:1px solid var(--border);font-size:13px">${r.label} — ${r.c}문제</div>`).join('')}
   </div>` : '';
 
   // 패턴 수집
@@ -3994,9 +3990,9 @@ function buildCurrentAnalysis(wrongs, name) {
       const diffs = analyzeChunkDiff(d.answer, d.studentAns);
       detectErrorPatterns(diffs, t).forEach(p => itemCats.add(p.cat));
       const hl = highlightChunks(d.answer||'', d.studentAns||'');
-      return `<div style="margin-top:4px;padding:6px 8px;background:${getTypeBg(t)};border-radius:4px;border-left:2px solid ${getTypeColor(t)}">
-        <div style="font-size:10px;font-weight:600;color:${getTypeColor(t)};margin-bottom:3px">${getTypeLabel(t)}</div>
-        ${d.answer?`<div style="font-size:12px;margin-bottom:2px"><span style="font-size:10px;color:var(--accent);font-weight:600">정답</span> ${hl.ansHtml}</div>`:''}
+      return `<div style="margin-top:2px;padding:3px 6px;background:${getTypeBg(t)};border-radius:4px;border-left:2px solid ${getTypeColor(t)}">
+        <div style="font-size:10px;font-weight:600;color:${getTypeColor(t)};margin-bottom:1px">${getTypeLabel(t)}</div>
+        ${d.answer?`<div style="font-size:12px"><span style="font-size:10px;color:var(--accent);font-weight:600">정답</span> ${hl.ansHtml}</div>`:''}
         ${d.studentAns?`<div style="font-size:12px"><span style="font-size:10px;color:var(--accent2);font-weight:600">학생</span> ${hl.stuHtml}</div>`:''}
       </div>`;
     }).join('');
@@ -4004,7 +4000,7 @@ function buildCurrentAnalysis(wrongs, name) {
     const tagsHtml = tags.length ? `<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:6px">
       ${tags.map(c => `<span style="font-size:9px;padding:2px 7px;border-radius:10px;background:${(CAT_COLOR[c]||'#999')}20;color:${CAT_COLOR[c]||'var(--text2)'};font-weight:600">🏷 ${c}</span>`).join('')}
     </div>` : '';
-    return `<div style="padding:8px 10px;background:var(--surface2);border-radius:6px;margin-bottom:4px;border-left:3px solid var(--accent2)">
+    return `<div style="padding:4px 6px;background:var(--surface2);border-radius:6px;margin-bottom:4px;border-left:3px solid var(--accent2)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
         <b style="font-size:12px;color:var(--accent2)">${w.num||i+1}번</b>
         <div style="display:flex;gap:3px">${typeLabels}</div>
@@ -4076,12 +4072,8 @@ function buildCumulativeAnalysis(allWrongs, pastHW, currentWrongs, name) {
   const typeRows = ['eng','ord','kor'].map(k => ({k, c: tc[k], ...TYPE_STYLE[k]}))
     .filter(r => r.c > 0)
     .sort((a,b) => b.c - a.c);
-  const typeSummary = typeRows.length ? `<div style="display:flex;flex-direction:column;gap:3px">
-    ${typeRows.map(r => `<div style="display:flex;align-items:center;gap:8px;padding:5px 10px;background:var(--surface2);border-radius:6px;border-left:3px solid ${r.color};font-size:12px">
-      <span style="flex:1">${r.label}</span>
-      <b style="color:${r.color}">${r.c}건</b>
-      <span style="color:var(--text3);font-size:10px;min-width:34px;text-align:right">${Math.round(r.c/total*100)}%</span>
-    </div>`).join('')}
+  const typeSummary = typeRows.length ? `<div>
+    ${typeRows.map(r => `<div style="padding:12px 0;border-bottom:1px solid var(--border);font-size:13px">${r.label} — ${r.c}건</div>`).join('')}
   </div>` : '';
 
   // 변화율 (첫↔최근)
