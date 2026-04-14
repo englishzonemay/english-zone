@@ -858,6 +858,47 @@ body {
 .search-wrap::before {
   content:'🔍'; position:absolute; left:12px; top:50%; transform:translateY(-50%); font-size:14px;
 }
+/* 검색 결과 드롭다운 */
+#search-results { color: var(--text); }
+.search-result-item {
+  padding: 10px 12px !important;
+  cursor: pointer;
+  font-size: 13px;
+  border-bottom: 1px solid var(--surface2);
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  gap: 8px !important;
+  white-space: nowrap !important;
+  color: #111 !important;
+}
+.search-result-item:hover { background: var(--surface2); }
+.search-result-item .sr-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #111 !important;
+  font-weight: 500;
+}
+.search-result-item .sr-badge {
+  flex: 0 0 auto;
+  white-space: nowrap !important;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  background: var(--surface2);
+  color: var(--text2) !important;
+}
+.search-result-item .sr-class {
+  flex: 0 0 auto;
+  white-space: nowrap !important;
+  font-size: 11px;
+  font-weight: 500;
+}
+
 /* DATE FILTER */
 .date-filter { display:flex; gap:4px; margin-bottom:12px; flex-wrap:wrap; }
 .date-filter .df-btn {
@@ -910,7 +951,6 @@ body {
   .header-logo span { display: none !important; } /* "코칭 트래커" 부제 완전 숨김 */
   #global-search,
   .header input[id="global-search"] { display: none !important; width: 0 !important; }
-  #search-results { display: none !important; }
   #header-class-name { display: none !important; } /* "W16 반" 헤더 텍스트 숨김 */
   /* 헤더 아이콘 버튼 공통 (모바일) — 아이콘만, 40×40 터치 타겟 */
   .hdr-icon-btn {
@@ -1027,7 +1067,7 @@ body {
     <div style="position:relative">
       <input id="global-search" placeholder="학생 검색" oninput="onGlobalSearch(this.value)" style="padding:5px 10px 5px 28px;border:1px solid var(--border);border-radius:20px;background:var(--surface);color:var(--text);font-size:12px;width:140px;outline:none" />
       <span style="position:absolute;left:9px;top:50%;transform:translateY(-50%);font-size:11px;opacity:0.6">🔍</span>
-      <div id="search-results" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:var(--shadow-md);min-width:200px;max-height:240px;overflow-y:auto;z-index:200"></div>
+      <div id="search-results" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:var(--shadow-md);min-width:260px;max-height:240px;overflow-y:auto;z-index:200"></div>
     </div>
     <span id="header-class-name" style="font-size:12px;opacity:0.7"></span>
     <button class="btn btn-sm header-counsel-btn hdr-icon-btn" style="background:rgba(255,255,255,0.15);border-color:rgba(255,255,255,0.3);color:white" onclick="openModal('modal-counseling')">📋 상담일지</button>
@@ -1922,10 +1962,10 @@ function onGlobalSearch(val) {
   if (!matches.length) { box.innerHTML='<div style="padding:10px;font-size:12px;color:var(--text3)">결과 없음</div>'; box.style.display='block'; return; }
   box.innerHTML = matches.map(s=>{
     const cls = db.classes.find(c=>c.id===s.classId);
-    return `<div style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--surface2);display:flex;align-items:center;gap:8px" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''" onclick="document.getElementById('global-search').value='';document.getElementById('search-results').style.display='none';setMenuDirect('students');setTimeout(()=>showStudentDetail('${s.id}'),100)">
-      <span style="font-weight:500">${s.name}</span>
-      <span class="badge badge-gray" style="font-size:10px">${s.grade}</span>
-      ${cls?`<span style="font-size:10px;color:${cls.color}">${cls.name}</span>`:''}
+    return `<div class="search-result-item" onclick="document.getElementById('global-search').value='';document.getElementById('search-results').style.display='none';setMenuDirect('students');setTimeout(()=>showStudentDetail('${s.id}'),100)">
+      <span class="sr-name">${s.name}</span>
+      <span class="sr-badge">${s.grade}</span>
+      ${cls?`<span class="sr-class" style="color:${cls.color}">${cls.name}</span>`:''}
     </div>`;
   }).join('');
   box.style.display='block';
@@ -2588,11 +2628,17 @@ function saveApiKey() {
   closeModal('modal-api-key');
 }
 
-async function callAI(prompt, maxTokens) {
+async function callAI(prompt, maxTokens, system) {
   const cfg = getApiConfig();
   if (!cfg.key) return null;
   const url = cfg.proxy ? cfg.proxy + '/v1/messages' : 'https://api.anthropic.com/v1/messages';
   try {
+    const body = {
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: maxTokens || 1000,
+      messages: [{ role: 'user', content: prompt }]
+    };
+    if (system) body.system = system;
     const res = await fetch(url, {
       method: 'POST',
       headers: {
@@ -2601,11 +2647,7 @@ async function callAI(prompt, maxTokens) {
         'anthropic-version': '2023-06-01',
         'anthropic-dangerous-direct-browser-access': 'true'
       },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: maxTokens || 1000,
-        messages: [{ role: 'user', content: prompt }]
-      })
+      body: JSON.stringify(body)
     });
     const data = await res.json();
     return data.content?.map(c=>c.text||'').join('') || null;
@@ -2694,50 +2736,49 @@ async function analyzeCounseling() {
   const el = document.getElementById('counsel-result');
   el.innerHTML = '<div class="loading" style="margin-top:12px"><div class="spinner"></div> 분석 중...</div>';
 
-  const prompt = `당신은 영어 학원 코칭 전문가입니다. 아래 상담 일지를 읽고 다음 항목을 한국어로 정리해주세요:
-1. 학생 성향 요약 (3줄 이내)
-2. 학습 패턴 및 문제점
-3. 코칭할 때 주의사항
-4. 효과적인 접근 방법 제안
-5. 스몰톡/라포 형성 힌트
+  const system = `너는 영어 학원 강사의 학생 상담 분석 도우미야.
+강사가 입력한 상담 내용을 읽고, 다음 수업에 바로 활용할 수 있도록 구체적이고 실용적인 분석을 해줘.
+절대 "감지되지 않았습니다", "파악할 수 없습니다", "정보가 부족합니다" 같은 회피성 문장은 쓰지 마.
+입력된 내용이 짧더라도, 그 안의 단서(단어, 태도, 맥락)를 최대한 추론해서 구체적으로 분석해.
+모호한 일반론("열심히 하도록 격려하세요" 같은) 대신, 이 아이에게만 해당되는 구체적 조언을 써.
 
-학생명: ${name || '미기재'}
+반드시 아래 순서와 형식 그대로 마크다운으로 출력해:
+
+**🧠 이 아이 한 줄 요약**
+(성격 + 학습 스타일을 한 문장으로)
+
+**📌 주요 특징**
+- 성격/태도: (수업 참여 방식, 관계 형성 등)
+- 학습 패턴: (이해 속도, 기억력, 실수 유형 등)
+- 주의할 점: (강사가 놓치기 쉬운 부분)
+
+**✅ 다음 수업 전 체크포인트**
+- 구체적으로 확인해야 할 것 2~3가지
+
+**💡 이 아이에게 효과적인 수업 방식**
+- 어떻게 설명하면 잘 이해하는지
+- 어떤 방식으로 칭찬/피드백을 주면 좋은지
+
+**⚠️ 강사 주의사항**
+- 이 아이를 가르칠 때 조심해야 할 것`;
+
+  const prompt = `학생명: ${name || '미기재'}
+
 상담 내용:
 ${text}`;
 
-  const aiText = await callAI(prompt, 1000);
+  const aiText = await callAI(prompt, 1500, system);
   if (aiText) {
-    el.innerHTML = `<div class="ai-result" style="margin-top:12px;white-space:pre-wrap">${aiText}${aiSaveBtn('student',name)}</div>`;
+    el.innerHTML = `<div class="ai-result" style="margin-top:12px;white-space:pre-wrap;font-size:13px;line-height:1.8">${aiText}${aiSaveBtn('student',name)}</div>`;
     return;
   }
 
-  // 로컬 분석
-  const keywords = {
-    positive: ['좋아','잘','열심','노력','성장','개선'],
-    negative: ['안해','싫어','거부','포기','울','힘들'],
-    social: ['친구','엄마','아빠','동생','형','누나'],
-    academic: ['숙제','시험','영어','단어','문법','읽기']
-  };
-  const detected = {};
-  Object.entries(keywords).forEach(([cat, words]) => {
-    const found = words.filter(w => text.includes(w));
-    if (found.length) detected[cat] = found;
-  });
-
-  let result = `<div class="ai-result" style="margin-top:12px;font-size:12px;line-height:1.8">`;
-  result += `<b>📋 상담 분석 — ${name||'미기재'}</b><br><br>`;
-  result += `<b style="color:var(--accent)">1. 성향 요약</b><br>`;
-  if (detected.positive) result += `긍정적 신호 감지: ${detected.positive.join(', ')}<br>`;
-  if (detected.negative) result += `주의 필요 신호: ${detected.negative.join(', ')}<br>`;
-  if (!detected.positive && !detected.negative) result += `상담 내용에서 뚜렷한 성향 키워드가 감지되지 않았습니다.<br>`;
-  result += `<br><b style="color:var(--accent)">2. 코칭 포인트</b><br>`;
-  if (detected.negative) result += `· 부정적 감정이 있으므로 압박보다 격려 우선<br>`;
-  if (detected.social) result += `· 가족/친구 이야기(${detected.social.join(', ')})를 스몰톡 소재로 활용<br>`;
-  if (detected.academic) result += `· 학업 관련 키워드(${detected.academic.join(', ')}) — 구체적 학습 계획 필요<br>`;
-  result += `· 다음 상담에서 변화 관찰 포인트 설정하기<br>`;
-  result += aiSaveBtn('student', name);
-  result += `</div>`;
-  el.innerHTML = result;
+  // API 키 없을 때만 안내
+  el.innerHTML = `<div class="ai-result" style="margin-top:12px;font-size:13px;line-height:1.7;color:var(--text2)">
+    <b>⚠️ AI 분석을 사용하려면 API 키가 필요합니다.</b><br>
+    우측 상단 ⚙️ 버튼에서 Anthropic API Key를 입력해주세요.<br><br>
+    <span style="font-size:12px;color:var(--text3)">상담 내용은 저장만 됩니다 (${text.length}자).</span>
+  </div>`;
 }
 
 // ===== HELPERS =====
@@ -5743,7 +5784,18 @@ function selectColor(el, color) {
 // ===== PWA: 서비스 워커 등록 =====
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(err => console.warn('SW 등록 실패', err));
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })
+      .then(reg => {
+        reg.update();
+        reg.addEventListener('updatefound', () => {
+          const nw = reg.installing;
+          if (!nw) return;
+          nw.addEventListener('statechange', () => {
+            if (nw.state === 'activated') window.location.reload();
+          });
+        });
+      })
+      .catch(err => console.warn('SW 등록 실패', err));
   });
 }
 </script>

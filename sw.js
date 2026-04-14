@@ -1,5 +1,5 @@
 // English Zone 코칭 트래커 — 서비스 워커
-const CACHE_VERSION = 'ez-v1-2026-04-15';
+const CACHE_VERSION = 'ez-v5-2026-04-15';
 const CORE_ASSETS = [
   './',
   './index.html',
