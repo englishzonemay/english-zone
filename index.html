@@ -2676,6 +2676,7 @@ function resetLessonForm(sid) {
   document.getElementById('hw-wrong-toggle').classList.remove('open');
   document.getElementById('hw-ai-analysis').innerHTML = '';
   document.getElementById('hw-ai-analysis').removeAttribute('data-analysis');
+  document.getElementById('hw-ai-analysis').removeAttribute('data-open-mode');
   document.getElementById('hw-read').value = '';
   wrongCounter = 0;
 }
@@ -3045,6 +3046,7 @@ function openAddHW() {
   document.getElementById('hw-wrong-count').textContent = '0';
   document.getElementById('hw-ai-analysis').innerHTML = '';
   document.getElementById('hw-ai-analysis').removeAttribute('data-analysis');
+  document.getElementById('hw-ai-analysis').removeAttribute('data-open-mode');
   document.getElementById('hw-memo').value = '';
   wrongCounter = 0;
   setStar(3);
@@ -3105,6 +3107,7 @@ function openEditHW(hwId) {
   } else {
     document.getElementById('hw-ai-analysis').innerHTML = '';
     document.getElementById('hw-ai-analysis').removeAttribute('data-analysis');
+  document.getElementById('hw-ai-analysis').removeAttribute('data-open-mode');
   }
 
   openModal('modal-add-hw');
@@ -3343,6 +3346,7 @@ function saveHW() {
   document.getElementById('hw-wrong-list').innerHTML='';
   document.getElementById('hw-ai-analysis').innerHTML='';
   document.getElementById('hw-ai-analysis').removeAttribute('data-analysis');
+  document.getElementById('hw-ai-analysis').removeAttribute('data-open-mode');
   document.getElementById('hw-edit-id').value='';
 }
 
@@ -3646,8 +3650,17 @@ async function analyzeWrongPattern(mode) {
   const studentName = document.getElementById('hw-student-sel').value;
   const el = document.getElementById('hw-ai-analysis');
 
+  // 같은 모드 다시 클릭 → 토글 닫기
+  if (el.dataset.openMode === mode) {
+    el.innerHTML = '';
+    el.dataset.openMode = '';
+    el.dataset.analysis = '';
+    return;
+  }
+
   if (mode === 'current' && !wrongs.length) {
-    el.innerHTML = '<p style="font-size:12px;color:var(--accent2)">틀린 문제를 먼저 추가해주세요.</p>';
+    el.innerHTML = '<p style="font-size:12px;color:var(--accent2);padding:8px 12px;background:var(--accent2-light);border-radius:6px">틀린 문제를 먼저 추가해주세요.</p>';
+    el.dataset.openMode = mode;
     return;
   }
 
@@ -3655,7 +3668,8 @@ async function analyzeWrongPattern(mode) {
   const pastWrongs = pastHW.flatMap(h => h.wrongs);
 
   if (mode === 'cumulative' && !pastWrongs.length && !wrongs.length) {
-    el.innerHTML = '<p style="font-size:12px;color:var(--accent2)">이 학생의 오답 기록이 없습니다.</p>';
+    el.innerHTML = '<p style="font-size:12px;color:var(--accent2);padding:8px 12px;background:var(--accent2-light);border-radius:6px">이 학생의 오답 기록이 없습니다.</p>';
+    el.dataset.openMode = mode;
     return;
   }
 
@@ -3671,6 +3685,7 @@ async function analyzeWrongPattern(mode) {
     el.innerHTML = analysis;
     el.dataset.analysis = analysis;
   }
+  el.dataset.openMode = mode;
 }
 
 // 청크 비교해서 구체적 차이점 추출
