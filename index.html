@@ -1171,7 +1171,7 @@ body {
   </div>
   <!-- 실험 기록 필드 -->
   <div id="exp-experiment-fields" style="display:none">
-    <div class="field"><label>시도한 방법</label><textarea id="exp-method" placeholder="예: 수업 전 동생 이야기로 스몰톡, 구두 어순 해석 같이 확인"></textarea></div>
+    <div class="field"><label>시도한 방법</label><textarea id="exp-method" placeholder="예: 수업 전 동생 이야기로 스몰톡, 구두 어순 영작하기 같이 확인"></textarea></div>
     <div class="field"><label>결과 / 반응</label><textarea id="exp-result" placeholder="예: 아이가 웃으며 반응, 그날 숙제 별점 4점으로 올라옴"></textarea></div>
     <div class="field"><label>효과 판정</label>
       <select id="exp-effect">
@@ -1740,7 +1740,7 @@ function renderStudents() {
     const sHW = db.homework.filter(h=>h.student===s.name);
     const sWrongs = sHW.flatMap(h=>h.wrongs||[]);
     const stc = countTypes(sWrongs);
-    const weakType = stc.eng>=stc.ord&&stc.eng>=stc.kor?(stc.eng?'영작':''):(stc.ord>=stc.kor?(stc.ord?'어순':''):(stc.kor?'해석':''));
+    const weakType = stc.eng>=stc.ord&&stc.eng>=stc.kor?(stc.eng?'영어어순':''):(stc.ord>=stc.kor?(stc.ord?'순서':''):(stc.kor?'영작':''));
     const now = new Date(); const thisMonth = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
     const sups = (db.supplements||[]).filter(sp=>sp.student===s.name&&sp.date&&sp.date.startsWith(thisMonth));
     const stayN = sups.filter(sp=>sp.type==='스테이').length;
@@ -1808,7 +1808,7 @@ function showStudentDetail(id) {
   const badExp = allExp.filter(e=>e.effect==='bad');
 
   // === 1. 성향 프로파일 자동 생성 ===
-  const weakest = tc.eng>=tc.ord&&tc.eng>=tc.kor?'영작':tc.ord>=tc.kor?'어순':'해석';
+  const weakest = tc.eng>=tc.ord&&tc.eng>=tc.kor?'영어어순':tc.ord>=tc.kor?'순서':'영작';
   const avgStars = allHW.length ? (allHW.reduce((a,h)=>a+h.stars,0)/allHW.length) : 0;
 
   // === 코칭 전략 카드 ===
@@ -1996,7 +1996,7 @@ function showStudentDetail(id) {
     ${(()=>{
       if(!allWrongs.length) return '';
       const t=allWrongs.length;
-      const areas=[{n:'영작',c:tc.eng,color:'var(--accent2)'},{n:'어순',c:tc.ord,color:'var(--gold)'},{n:'해석',c:tc.kor,color:'#185FA5'}].sort((a,b)=>b.c-a.c);
+      const areas=[{n:'영어어순',c:tc.eng,color:'var(--accent2)'},{n:'순서',c:tc.ord,color:'var(--gold)'},{n:'영작',c:tc.kor,color:'#185FA5'}].sort((a,b)=>b.c-a.c);
       return `<div class="weakness-box">
         <h5>취약점 분석 (${t}문제)</h5>
         ${areas.map(a=>`<div class="weakness-bar-wrap"><span class="weakness-bar-label">${a.n}</span><div class="weakness-bar-bg"><div class="weakness-bar-fill" style="width:${Math.round(a.c/t*100)}%;background:${a.color}"></div></div><span class="weakness-bar-count">${a.c}</span></div>`).join('')}
@@ -3071,26 +3071,26 @@ function addWrongItem(data) {
     <div class="wrong-field">
       <label>틀린 유형 (복수 선택)</label>
       <div style="display:flex;gap:6px;margin-top:2px">
-        <span class="type-chip ${types.includes('eng')?'on-eng':''}" data-type="eng" onclick="toggleTypeChip(this)">영작하기</span>
-        <span class="type-chip ${types.includes('ord')?'on-ord':''}" data-type="ord" onclick="toggleTypeChip(this)">어순배열</span>
-        <span class="type-chip ${types.includes('kor')?'on-kor':''}" data-type="kor" onclick="toggleTypeChip(this)">해석</span>
+        <span class="type-chip ${types.includes('eng')?'on-eng':''}" data-type="eng" onclick="toggleTypeChip(this)">영어 어순 배열</span>
+        <span class="type-chip ${types.includes('ord')?'on-ord':''}" data-type="ord" onclick="toggleTypeChip(this)">순서 배열</span>
+        <span class="type-chip ${types.includes('kor')?'on-kor':''}" data-type="kor" onclick="toggleTypeChip(this)">영작하기</span>
       </div>
     </div>
     <div class="wq-type-fields">
       <div class="wq-type-block" data-for="eng" style="display:${types.includes('eng')?'block':'none'};margin-top:8px;padding:8px;background:var(--accent2-light);border-radius:6px;border-left:3px solid var(--accent2)">
-        <div style="font-size:11px;font-weight:700;color:var(--accent2);margin-bottom:4px">영작하기</div>
+        <div style="font-size:11px;font-weight:700;color:var(--accent2);margin-bottom:4px">영어 어순 배열</div>
         <div class="wrong-field"><label>정답 (/ 로 청크 구분)</label><input class="wq-ans-eng" placeholder="예: I go / to school / every day" value="${det.eng?.answer||legacyAns}" oninput="previewChunks(this)" /></div>
         <div class="wrong-field"><label>학생 답안</label><input class="wq-stu-eng" placeholder="학생이 작성한 답안" value="${det.eng?.studentAns||legacyStu}" oninput="previewChunks(this)" /></div>
         <div class="wq-preview" style="min-height:16px;font-size:12px;margin-top:2px"></div>
       </div>
       <div class="wq-type-block" data-for="ord" style="display:${types.includes('ord')?'block':'none'};margin-top:8px;padding:8px;background:var(--gold-light);border-radius:6px;border-left:3px solid var(--gold)">
-        <div style="font-size:11px;font-weight:700;color:var(--gold);margin-bottom:4px">어순배열</div>
+        <div style="font-size:11px;font-weight:700;color:var(--gold);margin-bottom:4px">순서 배열</div>
         <div class="wrong-field"><label>정답 (/ 로 청크 구분)</label><input class="wq-ans-ord" placeholder="예: 나는 / 간다 / 학교에 / 매일" value="${det.ord?.answer||''}" oninput="previewChunks(this)" /></div>
         <div class="wrong-field"><label>학생 답안</label><input class="wq-stu-ord" placeholder="학생이 작성한 답안" value="${det.ord?.studentAns||''}" oninput="previewChunks(this)" /></div>
         <div class="wq-preview" style="min-height:16px;font-size:12px;margin-top:2px"></div>
       </div>
       <div class="wq-type-block" data-for="kor" style="display:${types.includes('kor')?'block':'none'};margin-top:8px;padding:8px;background:#EAF1FB;border-radius:6px;border-left:3px solid #185FA5">
-        <div style="font-size:11px;font-weight:700;color:#185FA5;margin-bottom:4px">해석</div>
+        <div style="font-size:11px;font-weight:700;color:#185FA5;margin-bottom:4px">영작하기</div>
         <div class="wrong-field"><label>정답 (/ 로 청크 구분)</label><input class="wq-ans-kor" placeholder="예: 나는 / 매일 / 학교에 간다" value="${det.kor?.answer||''}" oninput="previewChunks(this)" /></div>
         <div class="wrong-field"><label>학생 답안</label><input class="wq-stu-kor" placeholder="학생이 작성한 답안" value="${det.kor?.studentAns||''}" oninput="previewChunks(this)" /></div>
         <div class="wq-preview" style="min-height:16px;font-size:12px;margin-top:2px"></div>
@@ -3137,7 +3137,7 @@ function showAIAnalysis(hwId) {
   openModal('modal-student-detail');
 }
 
-function getTypeLabel(t) { return t==='eng'?'영작하기':t==='ord'?'어순배열':'해석'; }
+function getTypeLabel(t) { return t==='eng'?'영어 어순 배열':t==='ord'?'순서 배열':'영작하기'; }
 function getTypeColor(t) { return t==='eng'?'var(--accent2)':t==='ord'?'var(--gold)':'#185FA5'; }
 function getTypeBg(t) { return t==='eng'?'var(--accent2-light)':t==='ord'?'var(--gold-light)':'#EAF1FB'; }
 
@@ -3252,7 +3252,7 @@ function renderWeaknessAnalysis(hwList) {
     const de = Object.entries(d.dates).sort((a,b)=>a[0].localeCompare(b[0])).slice(-5);
     const mx = Math.max(...de.map(e=>e[1]),1);
     const bars = de.map(([dt,c])=>`<div style="text-align:center;flex:1"><div style="height:36px;display:flex;align-items:flex-end;justify-content:center"><div style="width:14px;background:var(--accent2);border-radius:3px 3px 0 0;height:${Math.round(c/mx*100)}%;min-height:4px"></div></div><div style="font-size:9px;color:var(--text3);margin-top:2px">${dt.slice(5)}</div><div style="font-size:10px;font-weight:600">${c}</div></div>`).join('');
-    const areas=[{n:'영작',c:sc.eng,color:'var(--accent2)'},{n:'어순',c:sc.ord,color:'var(--gold)'},{n:'해석',c:sc.kor,color:'#185FA5'}].sort((a,b)=>b.c-a.c);
+    const areas=[{n:'영어어순',c:sc.eng,color:'var(--accent2)'},{n:'순서',c:sc.ord,color:'var(--gold)'},{n:'영작',c:sc.kor,color:'#185FA5'}].sort((a,b)=>b.c-a.c);
     return `<div style="background:var(--surface2);border-radius:var(--radius-sm);padding:14px;margin-bottom:10px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
         <div style="display:flex;align-items:center;gap:8px"><b>${name}</b><span class="badge badge-red">${st}문제</span></div>
@@ -3268,9 +3268,9 @@ function renderWeaknessAnalysis(hwList) {
       <h4 style="margin:0">오답 유형별 분석</h4><span class="badge badge-gray">총 ${total}문제</span>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:18px">
-      <div class="weakness-box"><h5>영작하기</h5><div style="font-size:22px;font-weight:700;color:var(--accent2);margin:4px 0">${engPct}%</div><div class="weakness-bar-wrap"><div class="weakness-bar-bg"><div class="weakness-bar-fill" style="width:${engPct}%;background:var(--accent2)"></div></div><span class="weakness-bar-count">${tc.eng}건</span></div></div>
-      <div class="weakness-box"><h5>어순배열</h5><div style="font-size:22px;font-weight:700;color:var(--gold);margin:4px 0">${ordPct}%</div><div class="weakness-bar-wrap"><div class="weakness-bar-bg"><div class="weakness-bar-fill" style="width:${ordPct}%;background:var(--gold)"></div></div><span class="weakness-bar-count">${tc.ord}건</span></div></div>
-      <div class="weakness-box"><h5>해석</h5><div style="font-size:22px;font-weight:700;color:#185FA5;margin:4px 0">${korPct}%</div><div class="weakness-bar-wrap"><div class="weakness-bar-bg"><div class="weakness-bar-fill" style="width:${korPct}%;background:#185FA5"></div></div><span class="weakness-bar-count">${tc.kor}건</span></div></div>
+      <div class="weakness-box"><h5>영어 어순 배열</h5><div style="font-size:22px;font-weight:700;color:var(--accent2);margin:4px 0">${engPct}%</div><div class="weakness-bar-wrap"><div class="weakness-bar-bg"><div class="weakness-bar-fill" style="width:${engPct}%;background:var(--accent2)"></div></div><span class="weakness-bar-count">${tc.eng}건</span></div></div>
+      <div class="weakness-box"><h5>순서 배열</h5><div style="font-size:22px;font-weight:700;color:var(--gold);margin:4px 0">${ordPct}%</div><div class="weakness-bar-wrap"><div class="weakness-bar-bg"><div class="weakness-bar-fill" style="width:${ordPct}%;background:var(--gold)"></div></div><span class="weakness-bar-count">${tc.ord}건</span></div></div>
+      <div class="weakness-box"><h5>영작하기</h5><div style="font-size:22px;font-weight:700;color:#185FA5;margin:4px 0">${korPct}%</div><div class="weakness-bar-wrap"><div class="weakness-bar-bg"><div class="weakness-bar-fill" style="width:${korPct}%;background:#185FA5"></div></div><span class="weakness-bar-count">${tc.kor}건</span></div></div>
     </div>
     <h4 style="margin-bottom:10px">학생별 상세</h4>${studentCards}
   </div>`;
@@ -3362,7 +3362,7 @@ function detectErrorPatterns(diffs) {
 function buildCurrentAnalysis(wrongs, name) {
   const tc = countTypes(wrongs);
   const total = wrongs.length;
-  const areas = [{n:'영작하기',c:tc.eng,color:'var(--accent2)',bg:'var(--accent2-light)'},{n:'어순배열',c:tc.ord,color:'var(--gold)',bg:'var(--gold-light)'},{n:'해석',c:tc.kor,color:'#185FA5',bg:'#EAF1FB'}].sort((a,b)=>b.c-a.c);
+  const areas = [{n:'영어 어순 배열',c:tc.eng,color:'var(--accent2)',bg:'var(--accent2-light)'},{n:'순서 배열',c:tc.ord,color:'var(--gold)',bg:'var(--gold-light)'},{n:'영작하기',c:tc.kor,color:'#185FA5',bg:'#EAF1FB'}].sort((a,b)=>b.c-a.c);
 
   // 과거 오답에서 패턴 비교용
   const studentName = document.getElementById('hw-student-sel')?.value || name;
@@ -3525,7 +3525,7 @@ function buildCumulativeAnalysis(allWrongs, pastHW, currentWrongs, name) {
       <div style="height:50px;display:flex;align-items:flex-end;justify-content:center;gap:1px">
         <div style="width:6px;background:var(--accent2);border-radius:2px 2px 0 0;height:${s.tc.eng?Math.round(s.tc.eng/maxS*100):0}%;min-height:${s.tc.eng?2:0}px" title="영작"></div>
         <div style="width:6px;background:var(--gold);border-radius:2px 2px 0 0;height:${s.tc.ord?Math.round(s.tc.ord/maxS*100):0}%;min-height:${s.tc.ord?2:0}px" title="어순"></div>
-        <div style="width:6px;background:#185FA5;border-radius:2px 2px 0 0;height:${s.tc.kor?Math.round(s.tc.kor/maxS*100):0}%;min-height:${s.tc.kor?2:0}px" title="해석"></div>
+        <div style="width:6px;background:#185FA5;border-radius:2px 2px 0 0;height:${s.tc.kor?Math.round(s.tc.kor/maxS*100):0}%;min-height:${s.tc.kor?2:0}px" title="영작하기"></div>
       </div>
       <div style="font-size:9px;color:var(--text3);margin-top:3px">${s.date==='이번'?'이번':s.date.slice(5)}</div>
       <div style="font-size:10px;font-weight:600">${s.total}</div>
@@ -3538,7 +3538,7 @@ function buildCumulativeAnalysis(allWrongs, pastHW, currentWrongs, name) {
     const earlyTC = countTypes(sessions.slice(0, Math.ceil(sessions.length/2)).flatMap(s=>s.wrongs));
     const lateTC = countTypes(sessions.slice(Math.ceil(sessions.length/2)).flatMap(s=>s.wrongs));
     ['eng','ord','kor'].forEach(k => {
-      const label = k==='eng'?'영작하기':k==='ord'?'어순배열':'해석';
+      const label = k==='eng'?'영어 어순 배열':k==='ord'?'순서 배열':'영작하기';
       const color = k==='eng'?'var(--accent2)':k==='ord'?'var(--gold)':'#185FA5';
       if (earlyTC[k] > 0 && lateTC[k] > 0) repeating += `<div style="font-size:12px;padding:4px 8px;background:var(--accent2-light);border-radius:4px;margin-bottom:3px;border-left:3px solid ${color}"><b>${label}</b> — 초기 ${earlyTC[k]}건 → 최근 ${lateTC[k]}건 (계속 반복)</div>`;
       else if (earlyTC[k] > 0 && lateTC[k] === 0) improved += `<div style="font-size:12px;padding:4px 8px;background:var(--accent-light);border-radius:4px;margin-bottom:3px;border-left:3px solid var(--accent)"><b>${label}</b> — 초기 ${earlyTC[k]}건 → 최근 0건 (개선됨!)</div>`;
@@ -3556,17 +3556,17 @@ function buildCumulativeAnalysis(allWrongs, pastHW, currentWrongs, name) {
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px">
       <div style="text-align:center;padding:10px;background:var(--accent2-light);border-radius:var(--radius-sm)">
         <div style="font-size:20px;font-weight:700;color:var(--accent2)">${engPct}%</div>
-        <div style="font-size:11px;font-weight:600;color:var(--accent2)">영작하기 ${tc.eng}건</div>
+        <div style="font-size:11px;font-weight:600;color:var(--accent2)">영어 어순 배열 ${tc.eng}건</div>
         <div class="weakness-bar-bg" style="margin-top:4px"><div class="weakness-bar-fill" style="width:${engPct}%;background:var(--accent2)"></div></div>
       </div>
       <div style="text-align:center;padding:10px;background:var(--gold-light);border-radius:var(--radius-sm)">
         <div style="font-size:20px;font-weight:700;color:var(--gold)">${ordPct}%</div>
-        <div style="font-size:11px;font-weight:600;color:var(--gold)">어순배열 ${tc.ord}건</div>
+        <div style="font-size:11px;font-weight:600;color:var(--gold)">순서 배열 ${tc.ord}건</div>
         <div class="weakness-bar-bg" style="margin-top:4px"><div class="weakness-bar-fill" style="width:${ordPct}%;background:var(--gold)"></div></div>
       </div>
       <div style="text-align:center;padding:10px;background:#EAF1FB;border-radius:var(--radius-sm)">
         <div style="font-size:20px;font-weight:700;color:#185FA5">${korPct}%</div>
-        <div style="font-size:11px;font-weight:600;color:#185FA5">해석 ${tc.kor}건</div>
+        <div style="font-size:11px;font-weight:600;color:#185FA5">영작하기 ${tc.kor}건</div>
         <div class="weakness-bar-bg" style="margin-top:4px"><div class="weakness-bar-fill" style="width:${korPct}%;background:#185FA5"></div></div>
       </div>
     </div>
@@ -3576,7 +3576,7 @@ function buildCumulativeAnalysis(allWrongs, pastHW, currentWrongs, name) {
       <div style="display:flex;gap:12px;justify-content:center;font-size:10px;color:var(--text3)">
         <span><span style="display:inline-block;width:8px;height:8px;background:var(--accent2);border-radius:2px"></span> 영작</span>
         <span><span style="display:inline-block;width:8px;height:8px;background:var(--gold);border-radius:2px"></span> 어순</span>
-        <span><span style="display:inline-block;width:8px;height:8px;background:#185FA5;border-radius:2px"></span> 해석</span>
+        <span><span style="display:inline-block;width:8px;height:8px;background:#185FA5;border-radius:2px"></span> 영작하기</span>
       </div>
     </div>`:''}
     ${repeating?`<div style="margin-bottom:10px"><div style="font-weight:700;color:var(--accent2);font-size:13px;margin-bottom:6px;border-bottom:1px solid var(--border);padding-bottom:4px">🔄 반복되는 약점</div>${repeating}</div>`:''}
