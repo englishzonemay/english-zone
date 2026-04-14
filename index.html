@@ -319,9 +319,9 @@ body {
 .star.on { color: var(--gold); }
 
 /* HW LIST */
-.hw-table { width: 100%; border-collapse: collapse; }
-.hw-table th { font-size: 11px; font-weight: 600; color: var(--text3); text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); letter-spacing: 0.5px; }
-.hw-table td { padding: 10px 10px; border-bottom: 1px solid var(--border); font-size: 13px; }
+.hw-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.hw-table th { font-size: 11px; font-weight: 600; color: var(--text3); text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); letter-spacing: 0.5px; vertical-align: middle; }
+.hw-table td { padding: 10px 10px; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hw-table tr:last-child td { border-bottom: none; }
 .hw-table tr:hover td { background: var(--surface2); }
 
@@ -981,8 +981,17 @@ body {
       </div>
       <div class="card">
         <table class="hw-table">
+          <colgroup>
+            <col style="width:70px">
+            <col style="width:140px">
+            <col style="width:60px">
+            <col style="width:120px">
+            <col style="width:130px">
+            <col>
+            <col style="width:90px">
+          </colgroup>
           <thead><tr>
-            <th>날짜</th><th>학생</th><th>반</th><th>퀄리티</th><th>리딩 횟수</th><th>틀린 문제</th><th>AI 분석</th><th>특이사항</th><th></th>
+            <th>날짜</th><th>학생</th><th>반</th><th>퀄리티</th><th>오답/분석</th><th>특이사항</th><th></th>
           </tr></thead>
           <tbody id="hw-table-body"></tbody>
         </table>
@@ -2111,26 +2120,33 @@ function renderHomework() {
 
   if (!hw.length) {
     document.getElementById('hw-table-body').innerHTML =
-      '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text3)">기록이 없어요. 학생 카드 → 수업 일지에서 입력하세요.</td></tr>';
+      '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text3)">기록이 없어요. 학생 카드 → 수업 일지에서 입력하세요.</td></tr>';
     document.getElementById('hw-weakness-analysis').innerHTML = '';
     return;
   }
+  // 날짜 짧게 표시 (MM.DD)
+  const shortDate = d => {
+    if (!d) return '';
+    const m = d.match(/(\d{4})-(\d{2})-(\d{2})/);
+    return m ? `${m[2]}.${m[3]}` : d;
+  };
   document.getElementById('hw-table-body').innerHTML = hw.slice(0,50).map(h => {
     const s = db.students.find(s=>s.name===h.student);
     const cls = s ? db.classes.find(c=>c.id===s.classId) : null;
     const wrongCount = (h.wrongs && h.wrongs.length) ? h.wrongs.length : 0;
+    const wrongPart = wrongCount ? `<span class="badge badge-red" style="cursor:pointer;font-size:10px" onclick="showWrongDetail('${h.id}')">${wrongCount}문제</span>` : '';
+    const aiPart = h.aiAnalysis ? `<span class="badge badge-blue" style="cursor:pointer;font-size:10px" onclick="showAIAnalysis('${h.id}')">분석보기</span>` : '';
+    const wrongAi = (wrongPart||aiPart) ? `<div style="display:flex;gap:4px;align-items:center;flex-wrap:nowrap">${wrongPart}${wrongPart&&aiPart?'<span style="color:var(--text3);font-size:10px">|</span>':''}${aiPart}</div>` : '<span style="color:var(--text3)">—</span>';
     return `<tr>
-      <td style="color:var(--text2)">${h.date}</td>
-      <td><b style="font-weight:500">${h.student}</b></td>
+      <td style="color:var(--text2)" title="${h.date||''}">${shortDate(h.date)}</td>
+      <td title="${h.student||''}"><b style="font-weight:500">${h.student}</b></td>
       <td>${cls?`<span class="badge" style="background:${cls.color}20;color:${cls.color}">${cls.name}</span>`:''}</td>
-      <td><span style="color:${h.stars>=4?'var(--accent)':h.stars>=3?'var(--gold)':'var(--accent2)'}">${'★'.repeat(h.stars)}${'☆'.repeat(5-h.stars)}</span>${h.qualityMemo?`<div style="font-size:10px;color:var(--text2);font-style:italic;margin-top:2px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">"${h.qualityMemo}"</div>`:''}</td>
-      <td>${h.read ? `<span class="badge ${Number(h.read)>=20?'badge-green':Number(h.read)>=10?'badge-gold':'badge-red'}">${h.read}회</span>` : '<span style="color:var(--text3)">—</span>'}</td>
-      <td>${wrongCount ? `<span class="badge badge-red" style="cursor:pointer" onclick="showWrongDetail('${h.id}')">${wrongCount}문제</span>` : '<span style="color:var(--text3)">—</span>'}</td>
-      <td>${h.aiAnalysis ? `<span class="badge badge-blue" style="cursor:pointer;font-size:10px" onclick="showAIAnalysis('${h.id}')">분석보기</span>` : '<span style="color:var(--text3)">—</span>'}</td>
-      <td style="color:var(--text2);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${h.memo||'—'}</td>
-      <td style="white-space:nowrap">
-        <button class="btn btn-sm" onclick="editHwFromTable('${h.id}')" style="font-size:10px;padding:3px 8px">수정</button>
-        <button class="btn btn-sm" onclick="deleteHwFromTable('${h.id}')" style="font-size:10px;padding:3px 8px;color:var(--accent2);border-color:var(--accent2)">삭제</button>
+      <td><span style="color:${h.stars>=4?'var(--accent)':h.stars>=3?'var(--gold)':'var(--accent2)'}">${'★'.repeat(h.stars)}${'☆'.repeat(5-h.stars)}</span>${h.qualityMemo?`<span style="font-size:10px;color:var(--text2);font-style:italic;margin-left:4px" title="${h.qualityMemo}">"${h.qualityMemo.length>10?h.qualityMemo.slice(0,10)+'…':h.qualityMemo}"</span>`:''}</td>
+      <td>${wrongAi}</td>
+      <td style="color:var(--text2)" title="${h.memo||''}">${h.memo||'—'}</td>
+      <td>
+        <button class="btn btn-sm" onclick="editHwFromTable('${h.id}')" style="font-size:10px;padding:3px 6px">수정</button>
+        <button class="btn btn-sm" onclick="deleteHwFromTable('${h.id}')" style="font-size:10px;padding:3px 6px;color:var(--accent2);border-color:var(--accent2)">삭제</button>
       </td>
     </tr>`;
   }).join('');
