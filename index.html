@@ -949,8 +949,17 @@ body {
   .header > div:first-child { min-width: 0; flex: 1; }
   .header-logo { font-size: 15px !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; max-width: 100% !important; }
   .header-logo span { display: none !important; } /* "코칭 트래커" 부제 완전 숨김 */
-  #global-search,
-  .header input[id="global-search"] { display: none !important; width: 0 !important; }
+  /* 모바일에서도 검색창 표시 — 너비는 아이콘 버튼과 균형 맞춰 축소 */
+  #global-search {
+    width: 110px !important;
+    font-size: 13px !important;
+    padding: 6px 10px 6px 26px !important;
+  }
+  #search-results {
+    min-width: min(280px, calc(100vw - 24px)) !important;
+    right: 0 !important;
+    z-index: 1000 !important;
+  }
   #header-class-name { display: none !important; } /* "W16 반" 헤더 텍스트 숨김 */
   /* 헤더 아이콘 버튼 공통 (모바일) — 아이콘만, 40×40 터치 타겟 */
   .hdr-icon-btn {
