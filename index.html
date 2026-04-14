@@ -482,6 +482,35 @@ body {
 .time-dropdown .time-btn:hover { background:var(--accent-light); color:var(--accent); border-color:var(--accent); }
 .time-dropdown .time-btn.selected { background:var(--accent); color:white; border-color:var(--accent); }
 
+/* CHECKLIST CHECK BUTTON (원형 토글) */
+.check-btn {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 2px solid var(--accent); background: transparent;
+  cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+  font-size: 12px; color: transparent; padding: 0; line-height: 1;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.15s ease, border-color 0.2s ease;
+  flex-shrink: 0;
+}
+.check-btn:hover { background: var(--accent-light); }
+.check-btn.done {
+  background: var(--accent); color: white; border-color: var(--accent);
+  transform: scale(1.05);
+}
+.check-btn.done:hover { opacity: 0.85; }
+
+/* VOCAB TIME RANGE PICKER */
+.vt-range { background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 12px; }
+.vt-range .vt-label { font-size:11px; color:var(--text3); font-weight:600; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.3px; }
+.vt-range .vt-btns { display:flex; flex-wrap:wrap; gap:4px; margin-bottom:10px; }
+.vt-range .vt-btn {
+  padding:5px 9px; border-radius:6px; font-size:12px; cursor:pointer;
+  border:1px solid var(--border); background:var(--surface); color:var(--text2); transition:all 0.1s; user-select:none;
+}
+.vt-range .vt-btn:hover { background:var(--accent-light); color:var(--accent); border-color:var(--accent); }
+.vt-range .vt-btn.on { background:var(--accent); color:white; border-color:var(--accent); font-weight:600; }
+.vt-range .vt-preview { font-size:13px; color:var(--text); padding:6px 0 2px; font-weight:500; }
+.vt-range .vt-preview.empty { color:var(--text3); font-weight:400; }
+
 /* COACHING ASSISTANT */
 .coach-section {
   margin-bottom:14px;
@@ -518,41 +547,6 @@ body {
   font-size:12px; font-weight:600; cursor:pointer;
 }
 .coach-input-wrap button:hover { filter:brightness(0.9); }
-
-/* WEAKNESS ANALYSIS (취약점 분석) */
-.weakness-box {
-  background: var(--accent2-light);
-  border: 1px solid #f0cbb8;
-  border-radius: var(--radius-sm);
-  padding: 12px 14px;
-  margin-top: 8px;
-}
-.weakness-box h5 {
-  font-size: 12px;
-  color: var(--accent2);
-  margin-bottom: 6px;
-}
-.weakness-bar-wrap {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
-  font-size: 12px;
-}
-.weakness-bar-label { width: 28px; font-weight: 500; color: var(--text2); }
-.weakness-bar-bg {
-  flex: 1;
-  height: 14px;
-  background: var(--surface);
-  border-radius: 7px;
-  overflow: hidden;
-}
-.weakness-bar-fill {
-  height: 100%;
-  border-radius: 7px;
-  transition: width 0.3s;
-}
-.weakness-bar-count { width: 30px; text-align: right; color: var(--text3); font-size: 11px; }
 
 /* SUMMARY BOX */
 .summary-method {
@@ -1138,7 +1132,7 @@ body {
     </div>
     <div class="field">
       <label>시간</label>
-      <div class="time-picker-wrap"><span class="time-val" id="s-vocab-time-val">시간 선택</span><div class="time-dropdown" id="s-vocab-time-dd"></div></div>
+      <div id="s-vocab-time-range"></div>
     </div>
   </div>
   <!-- 일반반 전용 -->
@@ -1335,6 +1329,12 @@ function loadDB() {
     db.ainotes = parsed.ainotes || [];
     db.vocabTests = parsed.vocabTests || [];
     db.lessons = parsed.lessons || [];
+  }
+  // ONE-TIME: 옛 AI 분석 결과 초기화 (해결 방법/즉시 보강 등 구형 포맷 제거)
+  if (!localStorage.getItem('ez-ai-cleared-v1')) {
+    db.homework.forEach(h => { if (h.aiAnalysis) h.aiAnalysis = ''; });
+    saveDB();
+    localStorage.setItem('ez-ai-cleared-v1', '1');
   }
   // 완전히 비어있을 때만 샘플 추가
   if (!db.classes.length && !db.students.length && !db.homework.length) {
@@ -1720,78 +1720,179 @@ function filterByDate(items, period, dateField) {
 }
 
 // ===== CHECKLIST =====
+let checklistDay = null; // null → 오늘 자동
+
 function renderChecklist() {
   const el = document.getElementById('overview-checklist');
-  const today = new Date().toISOString().split('T')[0];
-  const dayNames = ['일','월','화','수','목','금','토'];
-  const todayDay = dayNames[new Date().getDay()];
-  const items = [];
+  const dayNamesFull = ['일','월','화','수','목','금','토'];
+  const todayDay = dayNamesFull[new Date().getDay()];
+  const dayTabs = ['월','화','수','목','금'];
+  if (!checklistDay) {
+    checklistDay = dayTabs.includes(todayDay) ? todayDay : '월';
+  }
+  const selDay = checklistDay;
 
-  // 오늘 수업 있는 반
-  const todayClasses = db.classes.filter(c=>(c.time||'').includes(todayDay));
-  if (todayClasses.length) {
-    items.push({icon:'📚',bg:'var(--accent-light)',text:`오늘 수업: ${todayClasses.map(c=>c.name).join(', ')} (${todayClasses.length}개 반)`});
+  // 탭 바
+  const tabBar = `<div style="display:flex;gap:4px;margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:2px">
+    ${dayTabs.map(d => {
+      const active = d === selDay;
+      const isToday = d === todayDay;
+      const bg = active ? 'var(--accent)' : (isToday ? 'var(--accent-light)' : 'transparent');
+      const color = active ? 'white' : (isToday ? 'var(--accent)' : 'var(--text2)');
+      return `<button type="button" onclick="setChecklistDay('${d}')" style="padding:6px 14px;border:none;background:${bg};color:${color};font-size:12px;font-weight:${active||isToday?'600':'500'};border-radius:6px 6px 0 0;cursor:pointer;position:relative">
+        ${d}${isToday?'<span style="font-size:10px;margin-left:4px;opacity:0.85">●</span>':''}
+      </button>`;
+    }).join('')}
+  </div>
+  ${checklistDay===todayDay?'<div style="font-size:11px;color:var(--accent);margin:-8px 0 10px">오늘 — '+selDay+'요일</div>':''}`;
+
+  // 1. 선택 요일에 수업 있는 반 (선택요일반 제외)
+  const dayClasses = db.classes.filter(c => !isVocabClass(c) && (c.time||'').includes(selDay));
+
+  // 2. 선택 요일에 오는 선택요일 학생
+  const vocabStudents = db.students
+    .filter(s => {
+      const cls = db.classes.find(c => c.id === s.classId);
+      return cls && isVocabClass(cls) && (s.days||[]).includes(selDay);
+    })
+    .sort((a,b) => (a.vocabTime||'').localeCompare(b.vocabTime||''));
+
+  const todayISO = new Date().toISOString().split('T')[0];
+
+  // 표시 가능 판정: 미완료는 항상 표시. 완료된 항목은 "오늘 탭 + 오늘 완료"일 때만 표시(같은 날 undo 허용).
+  const isVisible = (rec) => {
+    if (!rec || !rec.nextCheck) return false;
+    if (!rec.nextCheckDone) return true;
+    return (selDay === todayDay) && (rec.nextCheckDoneDate === todayISO);
+  };
+
+  // 학생별 최신 nextCheck 찾기 (lessons + vocabTests 통합). 미완료 우선, 없으면 오늘 완료한 것만.
+  const latestCheckFor = (name) => {
+    const items = [];
+    (db.lessons||[]).forEach(l => { if (l.student===name && l.nextCheck) items.push(l); });
+    (db.vocabTests||[]).forEach(v => { if (v.student===name && v.nextCheck) items.push(v); });
+    items.sort((a,b) => (b.date||'').localeCompare(a.date||''));
+    const pending = items.find(r => !r.nextCheckDone);
+    if (pending) return pending;
+    const recent = items[0];
+    return recent && isVisible(recent) ? recent : null;
+  };
+
+  // 행 렌더러
+  const renderRow = (label, l) => {
+    const done = !!l.nextCheckDone;
+    return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0 7px 12px;font-size:13px;transition:opacity 0.25s ease;${done?'opacity:0.45':''}">
+      <span style="color:${done?'var(--text3)':'var(--gold)'};font-size:13px">⚡</span>
+      <b style="min-width:60px;${done?'text-decoration:line-through':''}">${label}</b>
+      <span style="flex:1;color:var(--text2);${done?'text-decoration:line-through':''}">${l.nextCheck}</span>
+      <button type="button" class="check-btn${done?' done':''}" onclick="toggleNextCheck('${l.id}')" aria-label="${done?'완료 취소':'완료'}">✓</button>
+    </div>`;
+  };
+
+  // 일반반 섹션 — 체크사항 있는 학생이 1명 이상인 반만 표시
+  const classBlocks = dayClasses.map(c => {
+    const classStudents = db.students.filter(s => s.classId === c.id);
+    const rows = classStudents
+      .map(s => { const l = latestCheckFor(s.name); return l ? renderRow(s.name, l) : ''; })
+      .filter(Boolean)
+      .join('');
+    if (!rows) return '';
+    return `<div style="margin-bottom:12px">
+      <div style="font-size:12px;font-weight:600;color:var(--text);padding:6px 0;border-bottom:1px solid var(--border);margin-bottom:4px">
+        📚 ${c.name}${c.time?`<span style="color:var(--text3);font-weight:400;font-size:11px;margin-left:6px">${c.time}</span>`:''}
+      </div>
+      ${rows}
+    </div>`;
+  }).filter(Boolean).join('');
+
+  // 선택요일 섹션 — 체크사항 있는 학생만
+  const vocabRows = vocabStudents
+    .map(s => {
+      const l = latestCheckFor(s.name);
+      if (!l) return '';
+      const timeLabel = s.vocabTime ? ` (${s.vocabTime})` : '';
+      return renderRow(s.name + timeLabel, l);
+    })
+    .filter(Boolean)
+    .join('');
+  const vocabBlock = vocabRows ? `<div style="margin-bottom:4px">
+    <div style="font-size:12px;font-weight:600;color:var(--text);padding:6px 0;border-bottom:1px solid var(--border);margin-bottom:4px">📖 선택요일</div>
+    ${vocabRows}
+  </div>` : '';
+
+  const hasAnyClassOrVocab = dayClasses.length || vocabStudents.length;
+  const hasAnyCheck = classBlocks || vocabBlock;
+  let body;
+  if (!hasAnyClassOrVocab) {
+    body = `<div style="padding:20px 0;text-align:center;color:var(--text3);font-size:13px">${selDay}요일에 수업 없음</div>`;
+  } else if (!hasAnyCheck) {
+    body = `<div style="padding:16px 0;text-align:center;color:var(--text3);font-size:13px">체크할 사항이 없습니다</div>`;
   } else {
-    items.push({icon:'☀️',bg:'var(--surface2)',text:'오늘은 수업이 없습니다'});
+    body = classBlocks + vocabBlock;
   }
 
-  // 하브루타 대상 (온라인 1개 이상 틀린 학생)
-  const recentHW = db.homework.filter(h=>h.date>=today.slice(0,7)+'-01');
-  const havrutaStudents = [];
-  db.students.forEach(s=>{
-    const sHW = recentHW.filter(h=>h.student===s.name && h.wrongs && h.wrongs.length>=1);
-    if (sHW.length) havrutaStudents.push(s.name);
-  });
-  if (havrutaStudents.length) {
-    items.push({icon:'🗣️',bg:'var(--gold-light)',text:`하브루타 대상: ${havrutaStudents.slice(0,5).join(', ')}${havrutaStudents.length>5?' 외 '+(havrutaStudents.length-5)+'명':''}`});
+  // 완료된 항목 보관함 (복구용) — 해당 요일에 속한 학생들의 완료된 nextCheck 전부
+  const dayStudentNames = new Set();
+  dayClasses.forEach(c => db.students.filter(s=>s.classId===c.id).forEach(s=>dayStudentNames.add(s.name)));
+  vocabStudents.forEach(s => dayStudentNames.add(s.name));
+  const doneItems = [];
+  (db.lessons||[]).forEach(l => { if (l.nextCheck && l.nextCheckDone && dayStudentNames.has(l.student)) doneItems.push(l); });
+  (db.vocabTests||[]).forEach(v => { if (v.nextCheck && v.nextCheckDone && dayStudentNames.has(v.student)) doneItems.push(v); });
+  doneItems.sort((a,b) => (b.nextCheckDoneDate||'').localeCompare(a.nextCheckDoneDate||''));
+
+  let doneSection = '';
+  if (doneItems.length) {
+    const open = !!checklistShowDone;
+    const items = doneItems.map(l => {
+      const timeLabel = (vocabStudents.find(s=>s.name===l.student)?.vocabTime) ? ` (${vocabStudents.find(s=>s.name===l.student).vocabTime})` : '';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0 6px 12px;font-size:13px;opacity:0.6;transition:opacity 0.2s ease">
+        <span style="color:var(--text3);font-size:13px">⚡</span>
+        <b style="min-width:60px;text-decoration:line-through;color:var(--text2)">${l.student}${timeLabel}</b>
+        <span style="flex:1;color:var(--text3);text-decoration:line-through">${l.nextCheck}</span>
+        <span style="font-size:10px;color:var(--text3);min-width:60px;text-align:right">${l.nextCheckDoneDate||''}</span>
+        <button type="button" class="check-btn done" onclick="toggleNextCheck('${l.id}')" aria-label="복구" title="복구">✓</button>
+      </div>`;
+    }).join('');
+    doneSection = `<div style="margin-top:14px;padding-top:10px;border-top:1px dashed var(--border)">
+      <button type="button" onclick="toggleChecklistDoneSection()" style="display:flex;align-items:center;gap:6px;width:100%;border:none;background:transparent;cursor:pointer;padding:4px 0;font-size:12px;color:var(--text2);font-weight:500">
+        <span style="transition:transform 0.2s ease;display:inline-block;${open?'transform:rotate(90deg)':''}">▶</span>
+        <span>완료된 항목 (${doneItems.length}) — 복구하려면 ✓ 다시 누르기</span>
+      </button>
+      <div style="display:${open?'block':'none'};margin-top:6px">${items}</div>
+    </div>`;
   }
 
-  // 숙제 별점 2 이하 경고
-  const lowStars = [];
-  db.students.forEach(s=>{
-    const rows = db.homework.filter(h=>h.student===s.name);
-    if (rows.length) {
-      const last = rows[rows.length-1];
-      if (last.stars<=2) lowStars.push(s.name);
-    }
-  });
-  if (lowStars.length) {
-    items.push({icon:'⚠️',bg:'var(--accent2-light)',text:`숙제 퀄리티 주의: ${lowStars.join(', ')} (★2 이하)`});
-  }
-
-  // 상담 2주 이상 없음
-  const twoWeeksAgo = new Date(Date.now()-14*86400000).toISOString().split('T')[0];
-  const noRecord = db.students.filter(s=>{
-    const rows = db.homework.filter(h=>h.student===s.name);
-    const exps = db.experiments.filter(e=>e.student===s.name);
-    const all = [...rows,...exps].sort((a,b)=>(a.date||'').localeCompare(b.date||''));
-    return !all.length || all[all.length-1].date < twoWeeksAgo;
-  });
-  if (noRecord.length) {
-    items.push({icon:'📝',bg:'#EAF1FB',text:`2주 이상 기록 없음: ${noRecord.map(s=>s.name).join(', ')}`});
-  }
-
-  // 이번 달 결석 많은 학생 (2회 이상)
-  const thisMonth = today.slice(0,7);
-  const absByStudent = {};
-  (db.lessons||[]).filter(l => l.attend==='absent' && l.date && l.date.startsWith(thisMonth)).forEach(l => {
-    if (!absByStudent[l.student]) absByStudent[l.student] = 0;
-    absByStudent[l.student]++;
-  });
-  const heavyAbs = Object.entries(absByStudent).filter(([,n])=>n>=2).sort((a,b)=>b[1]-a[1]);
-  if (heavyAbs.length) {
-    items.push({icon:'⚠️',bg:'var(--accent2-light)',text:`이번 달 결석 많음: ${heavyAbs.map(([n,c])=>`${n} ${c}회`).join(', ')}`});
-  }
-
-  if (!items.length) { el.innerHTML=''; return; }
   el.innerHTML = `<div class="checklist-card">
     <div style="font-size:11px;font-weight:600;letter-spacing:0.5px;color:var(--text3);margin-bottom:8px;text-transform:uppercase">📋 수업 전 체크리스트</div>
-    ${items.map(i=>`<div class="checklist-item">
-      <div class="cl-icon" style="background:${i.bg}">${i.icon}</div>
-      <div style="flex:1">${i.text}</div>
-    </div>`).join('')}
+    ${tabBar}
+    ${body}
+    ${doneSection}
   </div>`;
 }
+
+let checklistShowDone = false;
+function toggleChecklistDoneSection() {
+  checklistShowDone = !checklistShowDone;
+  renderChecklist();
+}
+
+function setChecklistDay(d) {
+  checklistDay = d;
+  renderChecklist();
+}
+
+function toggleNextCheck(id) {
+  let rec = (db.lessons||[]).find(x => x.id === id);
+  if (!rec) rec = (db.vocabTests||[]).find(x => x.id === id);
+  if (!rec) return;
+  rec.nextCheckDone = !rec.nextCheckDone;
+  rec.nextCheckDoneDate = rec.nextCheckDone ? new Date().toISOString().split('T')[0] : '';
+  saveDB();
+  renderChecklist();
+}
+
+// 레거시 호환
+function clearNextCheck(lid) { toggleNextCheck(lid); }
 
 // ===== STUDENTS =====
 function renderStudents() {
@@ -2087,12 +2188,10 @@ function showStudentDetail(id) {
     </div>
     ${(()=>{
       if(!allWrongs.length) return '';
-      const t=allWrongs.length;
-      const areas=[{n:'영어어순',c:tc.eng,color:'var(--accent2)'},{n:'순서',c:tc.ord,color:'var(--gold)'},{n:'영작',c:tc.kor,color:'#185FA5'}].sort((a,b)=>b.c-a.c);
-      return `<div class="weakness-box">
-        <h5>취약점 분석 (${t}문제)</h5>
-        ${areas.map(a=>`<div class="weakness-bar-wrap"><span class="weakness-bar-label">${a.n}</span><div class="weakness-bar-bg"><div class="weakness-bar-fill" style="width:${Math.round(a.c/t*100)}%;background:${a.color}"></div></div><span class="weakness-bar-count">${a.c}</span></div>`).join('')}
-        <p style="font-size:12px;margin-top:6px;color:var(--accent2)">주요 취약: <b>${areas[0].n}</b></p>
+      const rows=[{label:'영어 어순 배열',c:tc.eng},{label:'순서 배열',c:tc.ord},{label:'영작하기',c:tc.kor}].filter(r=>r.c>0).sort((a,b)=>b.c-a.c);
+      return `<div style="padding:12px 0">
+        <div style="font-size:12px;color:#888;margin-bottom:8px">취약점 분석</div>
+        ${rows.map(r=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #eee;font-size:13px"><span>${r.label}</span><span style="color:#C4562A">${r.c}문제</span></div>`).join('')}
       </div>`;
     })()}
     <div class="detail-section">
@@ -2135,8 +2234,7 @@ function renderHomework() {
     const cls = s ? db.classes.find(c=>c.id===s.classId) : null;
     const wrongCount = (h.wrongs && h.wrongs.length) ? h.wrongs.length : 0;
     const wrongPart = wrongCount ? `<span class="badge badge-red" style="cursor:pointer;font-size:10px" onclick="showWrongDetail('${h.id}')">${wrongCount}문제</span>` : '';
-    const aiPart = h.aiAnalysis ? `<span class="badge badge-blue" style="cursor:pointer;font-size:10px" onclick="showAIAnalysis('${h.id}')">분석보기</span>` : '';
-    const wrongAi = (wrongPart||aiPart) ? `<div style="display:flex;gap:4px;align-items:center;flex-wrap:nowrap">${wrongPart}${wrongPart&&aiPart?'<span style="color:var(--text3);font-size:10px">|</span>':''}${aiPart}</div>` : '<span style="color:var(--text3)">—</span>';
+    const wrongAi = wrongPart ? `<div style="display:flex;gap:4px;align-items:center;flex-wrap:nowrap">${wrongPart}</div>` : '<span style="color:var(--text3)">—</span>';
     return `<tr>
       <td style="color:var(--text2)" title="${h.date||''}">${shortDate(h.date)}</td>
       <td title="${h.student||''}"><b style="font-weight:500">${h.student}</b></td>
@@ -2419,7 +2517,18 @@ function getFilteredExp() {
 
 // ===== MODALS =====
 function openModal(id) {
-  document.getElementById(id).classList.add('open');
+  const ov = document.getElementById(id);
+  ov.classList.add('open');
+  // 배경(오버레이) 클릭 시 닫기 — 한 번만 바인딩
+  if (!ov.dataset.backdropBound) {
+    ov.addEventListener('mousedown', (e) => { ov._downOnOverlay = (e.target === ov); });
+    ov.addEventListener('click', (e) => {
+      // mousedown이 오버레이에서 시작되고 click 타겟도 오버레이일 때만 닫음
+      // (모달 내부에서 드래그하다 밖에서 놓는 경우 닫히지 않게)
+      if (e.target === ov && ov._downOnOverlay) closeModal(id);
+    });
+    ov.dataset.backdropBound = '1';
+  }
   if (id==='modal-api-key') {
     document.getElementById('api-key-input').value = localStorage.getItem('ez-api-key')||'';
     document.getElementById('api-proxy-input').value = localStorage.getItem('ez-api-proxy')||'';
@@ -2561,6 +2670,7 @@ function renderLessonSection(s) {
         </div>
         <div class="field" style="margin-bottom:6px"><label>어려워한 부분</label><textarea id="ll-hard-${s.id}" style="height:50px" placeholder="자유 작성"></textarea></div>
         <div class="field" style="margin-bottom:6px"><label>특이사항</label><textarea id="ll-note-${s.id}" style="height:50px" placeholder="자유 작성"></textarea></div>
+        <div class="field" style="margin-bottom:6px"><label>⚡ 다음 시간 체크사항</label><input type="text" id="ll-nextcheck-${s.id}" placeholder="예: 어순 오류 확인, 숙제 체크, 스몰톡 시도" /></div>
 
         <!-- 숙제 퀄리티 섹션 -->
         <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--border)">
@@ -2636,7 +2746,7 @@ function renderLessonSection(s) {
                 <span class="badge badge-red" style="font-size:10px">✗ 결석</span>
                 ${l.absReason?`<span class="badge" style="font-size:10px;background:var(--accent2);color:white">${l.absReason}</span>`:''}
               </div>
-              <div style="display:flex;gap:4px">
+              <div style="display:flex;flex-direction:row;gap:6px;flex-shrink:0;white-space:nowrap">
                 <button class="btn btn-sm" onclick="event.stopPropagation();editLesson('${l.id}','${s.id}')" style="font-size:10px;padding:3px 8px">수정</button>
                 <button class="btn btn-sm" onclick="event.stopPropagation();deleteLesson('${l.id}','${s.id}')" style="font-size:10px;padding:3px 8px;color:var(--accent2);border-color:var(--accent2)">삭제</button>
               </div>
@@ -2656,7 +2766,7 @@ function renderLessonSection(s) {
             ${hwLink?`<span style="font-size:11px;color:${hwLink.stars>=4?'var(--accent)':hwLink.stars>=3?'var(--gold)':'var(--accent2)'}">${'★'.repeat(hwLink.stars)}${'☆'.repeat(5-hwLink.stars)}</span>${hwLink.qualityMemo?`<span style="font-size:10px;color:var(--text2);font-style:italic">"${hwLink.qualityMemo}"</span>`:''}`:''}
             ${wrongCount?`<span class="badge badge-red" style="font-size:10px;cursor:pointer" onclick="event.stopPropagation();showWrongDetail('${l.hwId}')">오답 ${wrongCount}</span>`:''}
           </div>
-          <div style="display:flex;gap:4px">
+          <div style="display:flex;flex-direction:row;gap:6px;flex-shrink:0;white-space:nowrap">
             <button class="btn btn-sm" onclick="event.stopPropagation();editLesson('${l.id}','${s.id}')" style="font-size:10px;padding:3px 8px">수정</button>
             <button class="btn btn-sm" onclick="event.stopPropagation();deleteLesson('${l.id}','${s.id}')" style="font-size:10px;padding:3px 8px;color:var(--accent2);border-color:var(--accent2)">삭제</button>
           </div>
@@ -2775,6 +2885,13 @@ function saveLesson(sid) {
     const warnCheat = document.getElementById('ll-warn-cheat-'+sid)?.checked || false;
     const warnType = document.getElementById('ll-wt-'+sid)?.value || '';
     const warnMemo = document.getElementById('ll-warn-memo-'+sid)?.value || '';
+    const nextCheck = document.getElementById('ll-nextcheck-'+sid)?.value?.trim() || '';
+    // 편집 시 체크사항 텍스트가 같으면 완료 상태 유지
+    let nextCheckDone = false;
+    if (editLid) {
+      const prev = db.lessons.find(x=>x.id===editLid);
+      if (prev && prev.nextCheck === nextCheck) nextCheckDone = !!prev.nextCheckDone;
+    }
     lessonData = {
       studentId: sid, student: s.name, date,
       attend: 'present',
@@ -2784,7 +2901,8 @@ function saveLesson(sid) {
       hard: document.getElementById('ll-hard-'+sid).value,
       memo, stars: hwStar, wrongs,
       qualityMemo,
-      warnCheat, warnType, warnMemo
+      warnCheat, warnType, warnMemo,
+      nextCheck, nextCheckDone
     };
   }
 
@@ -2893,6 +3011,7 @@ function editLesson(lid, sid) {
   document.getElementById('ll-mood-'+sid).value = l.mood||'';
   document.getElementById('ll-hard-'+sid).value = l.hard||'';
   document.getElementById('ll-note-'+sid).value = l.memo||'';
+  const ncEl = document.getElementById('ll-nextcheck-'+sid); if (ncEl) ncEl.value = l.nextCheck||'';
   // 칩 강조 복원
   document.querySelectorAll(`#lesson-form-${sid} .type-chip[data-hv]`).forEach(c => c.classList.toggle('on-eng', c.dataset.hv===l.havruta));
   document.querySelectorAll(`#lesson-form-${sid} .type-chip[data-mood]`).forEach(c => c.classList.toggle('on-eng', c.dataset.mood===l.mood));
@@ -3030,23 +3149,7 @@ function openAddStudent() {
   // 요일 버튼 초기화
   const dayBtns = document.getElementById('s-day-btns');
   dayBtns.innerHTML = ['월','화','수','목','금'].map(d=>`<button type="button" class="day-btn" data-day="${d}" onclick="this.classList.toggle('on')">${d}</button>`).join('');
-  document.getElementById('s-vocab-time-val').textContent = '시간 선택';
-  document.getElementById('s-vocab-time-val').dataset.time = '';
-  initTimePicker('s-vocab-time-dd','s-vocab-time-val','');
-  // 시간 선택 커스텀 핸들러 (preview 없음)
-  document.getElementById('s-vocab-time-val').onclick = (e) => {
-    e.stopPropagation();
-    document.querySelectorAll('.time-dropdown').forEach(d=>d.classList.remove('open'));
-    document.getElementById('s-vocab-time-dd').classList.toggle('open');
-  };
-  document.querySelectorAll('#s-vocab-time-dd .time-btn').forEach(b => {
-    b.onclick = (e) => {
-      e.stopPropagation();
-      document.getElementById('s-vocab-time-val').textContent = b.textContent;
-      document.getElementById('s-vocab-time-val').dataset.time = b.textContent;
-      document.getElementById('s-vocab-time-dd').classList.remove('open');
-    };
-  });
+  renderVocabTimeRange('s-vocab-time-range', '');
   onStudentClassChange();
   openModal('modal-add-student');
 }
@@ -3194,6 +3297,55 @@ const dayNames = ['월','화','수','목','금','토','일'];
 const timeSlots = [];
 for (let h=1;h<=10;h++) { timeSlots.push(h+'시'); timeSlots.push(h+'시 30분'); }
 
+// ===== VOCAB TIME RANGE PICKER =====
+function renderVocabTimeRange(containerId, initial) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  // 기존 값 파싱 (예: "3시~4시 30분" 또는 "3시")
+  let start = '', end = '';
+  if (initial) {
+    const parts = String(initial).split('~').map(s=>s.trim());
+    start = parts[0] || '';
+    end = parts[1] || '';
+  }
+  const mkBtns = (role, cur) => timeSlots.map(t =>
+    `<span class="vt-btn${t===cur?' on':''}" data-role="${role}" data-val="${t}">${t}</span>`
+  ).join('');
+  el.className = 'vt-range';
+  el.dataset.start = start;
+  el.dataset.end = end;
+  el.innerHTML = `
+    <div class="vt-label">시작 시간</div>
+    <div class="vt-btns" data-role="start">${mkBtns('start', start)}</div>
+    <div class="vt-label">종료 시간</div>
+    <div class="vt-btns" data-role="end">${mkBtns('end', end)}</div>
+    <div class="vt-preview${(start&&end)?'':' empty'}">${(start&&end)?(start+' ~ '+end):(start?start+' ~':'시간을 선택하세요')}</div>
+  `;
+  el.querySelectorAll('.vt-btn').forEach(b => {
+    b.onclick = () => {
+      const role = b.dataset.role;
+      el.querySelectorAll(`.vt-btn[data-role="${role}"]`).forEach(x => x.classList.remove('on'));
+      b.classList.add('on');
+      el.dataset[role] = b.dataset.val;
+      const s = el.dataset.start, e = el.dataset.end;
+      const pv = el.querySelector('.vt-preview');
+      if (s && e) { pv.textContent = s + ' ~ ' + e; pv.classList.remove('empty'); }
+      else if (s) { pv.textContent = s + ' ~'; pv.classList.add('empty'); }
+      else { pv.textContent = '시간을 선택하세요'; pv.classList.add('empty'); }
+    };
+  });
+}
+
+function getVocabTimeRange(containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return '';
+  const s = el.dataset.start || '';
+  const e = el.dataset.end || '';
+  if (s && e) return s + '~' + e;
+  if (s) return s;
+  return '';
+}
+
 function renderDayBtns(containerId, previewId) {
   const el = document.getElementById(containerId);
   el.innerHTML = dayNames.map(d =>
@@ -3299,7 +3451,7 @@ function saveStudent() {
   const cls = db.classes.find(c=>c.id===classId);
   const isVocab = isVocabClass(cls);
   const days = Array.from(document.querySelectorAll('#s-day-btns .day-btn.on')).map(b=>b.dataset.day);
-  const vocabTime = document.getElementById('s-vocab-time-val').dataset.time || '';
+  const vocabTime = getVocabTimeRange('s-vocab-time-range');
   db.students.push({
     id: 'stu_'+Date.now(),
     name,
@@ -3554,8 +3706,9 @@ function highlightChunks(answer, studentAns) {
 function showWrongDetail(hwId) {
   const h = db.homework.find(h=>h.id===hwId);
   if (!h || !h.wrongs || !h.wrongs.length) return;
-  const body = h.wrongs.map((w, i) => {
-    // 호환: 기존 구조
+
+  // 호환 처리 + wrongs 정규화
+  const wrongs = h.wrongs.map((w, i) => {
     if (!w.types) {
       const types = [];
       if (w.engWrong !== false) types.push('eng');
@@ -3563,38 +3716,150 @@ function showWrongDetail(hwId) {
       if (w.korWrong !== false) types.push('kor');
       w = { num: i+1, types, details: {} };
     }
-    // 호환: answer/studentAns 단일 필드 → details로 변환
     if (!w.details && (w.answer || w.studentAns)) {
       w.details = {};
       (w.types||[]).forEach(t => { w.details[t] = { answer: w.answer||'', studentAns: w.studentAns||'' }; });
     }
+    return w;
+  });
+
+  // 유형별 색상 (요청 사양)
+  const TYPE_CARD = {
+    kor: { label:'영작하기',       bg:'#FFF1EC', fg:'#C4562A' }, // 주황/빨강
+    eng: { label:'영어 어순 배열', bg:'#FFF8E1', fg:'#B8860B' }, // 노랑
+    ord: { label:'순서 배열',      bg:'#EAF1FB', fg:'#185FA5' }  // 파랑
+  };
+
+  const tc = countTypes(wrongs);
+  const total = wrongs.length;
+
+  const sectionHeader = (t) => `<div style="font-size:12px;font-weight:600;color:var(--text2);margin:18px 0 8px">${t}</div>`;
+
+  // 1. 유형별 카드 (0 제외, 큰 숫자 + 이름 + %)
+  const typeCards = ['kor','eng','ord']
+    .map(k => ({ k, c: tc[k], ...TYPE_CARD[k] }))
+    .filter(r => r.c > 0)
+    .map(r => `
+      <div style="flex:1;min-width:110px;background:${r.bg};border-radius:12px;padding:14px 12px;text-align:center">
+        <div style="font-size:28px;font-weight:700;color:${r.fg};line-height:1">${r.c}</div>
+        <div style="font-size:12px;color:${r.fg};margin-top:4px;font-weight:600">${r.label}</div>
+        <div style="font-size:11px;color:${r.fg};opacity:0.75;margin-top:2px">${Math.round(r.c/total*100)}%</div>
+      </div>`).join('');
+  const typeCardRow = typeCards
+    ? `<div style="display:flex;gap:8px;flex-wrap:wrap">${typeCards}</div>`
+    : '';
+
+  // 2. 문제별 원인 분석
+  const problemCards = wrongs.map((w, i) => {
     const det = w.details || {};
-    const typeBadges = (w.types||[]).map(t => `<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;background:${getTypeBg(t)};color:${getTypeColor(t)}">${getTypeLabel(t)}</span>`).join(' ');
-
-    // 유형별 정답/학생답안
-    let typeBlocks = (w.types||[]).map(t => {
-      const d = det[t];
-      if (!d) return '';
+    const ts = w.types || [];
+    const primary = ts[0] || 'eng';
+    const primaryStyle = TYPE_CARD[primary];
+    const typeBadges = ts.map(t => `<span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:10px;font-weight:600;background:${TYPE_CARD[t].bg};color:${TYPE_CARD[t].fg}">${TYPE_CARD[t].label}</span>`).join(' ');
+    const cats = new Set();
+    const bodyLines = ts.map(t => {
+      const d = det[t]; if (!d) return '';
+      detectErrorPatterns(analyzeChunkDiff(d.answer, d.studentAns), t).forEach(p => cats.add(p.cat));
       const hl = highlightChunks(d.answer, d.studentAns);
-      return `<div style="margin-top:6px;padding:8px;background:${getTypeBg(t)};border-radius:6px;border-left:3px solid ${getTypeColor(t)}">
-        <div style="font-size:11px;font-weight:700;color:${getTypeColor(t)};margin-bottom:4px">${getTypeLabel(t)}</div>
-        ${d.answer?`<div style="margin-bottom:3px"><span style="font-size:10px;color:var(--accent)">정답:</span> <span style="font-size:12px">${hl.ansHtml}</span></div>`:''}
-        ${d.studentAns?`<div><span style="font-size:10px;color:var(--accent2)">학생:</span> <span style="font-size:12px">${hl.stuHtml}</span></div>`:''}
-      </div>`;
+      return `${d.answer?`<div style="font-size:12px;line-height:1.5;margin-top:4px"><span style="color:var(--accent);font-size:10px;font-weight:600">정답</span> ${hl.ansHtml}</div>`:''}
+              ${d.studentAns?`<div style="font-size:12px;line-height:1.5"><span style="color:var(--accent2);font-size:10px;font-weight:600">학생</span> ${hl.stuHtml}</div>`:''}`;
     }).join('');
-
-    return `<div class="wrong-item" style="margin-bottom:10px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-        <span class="wrong-num">${w.num||i+1}번 문제</span>
-        <div>${typeBadges}</div>
+    const tagList = [...cats];
+    const tagsHtml = tagList.length ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">
+      ${tagList.map(c => `<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:${primaryStyle.bg};color:${primaryStyle.fg};font-weight:600">🏷 ${c}</span>`).join('')}
+    </div>` : '';
+    const primaryCat = tagList[0];
+    const reason = primaryCat && CAT_REASON[primaryCat]
+      ? `<div style="font-size:11px;color:var(--text3);margin-top:6px;padding-top:6px;border-top:1px dashed var(--border)">💡 ${CAT_REASON[primaryCat]}</div>` : '';
+    return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px">
+        <b style="font-size:13px;color:var(--text)">${w.num||i+1}번 문제</b>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">${typeBadges}</div>
       </div>
-      ${typeBlocks}
+      ${bodyLines}
+      ${tagsHtml}
+      ${reason}
     </div>`;
   }).join('');
-  const aiSection = h.aiAnalysis ? `<div class="divider" style="margin:12px 0"></div>${renderAIAnalysisHTML(h.aiAnalysis)}` : '';
-  document.getElementById('detail-name').textContent = h.student + ' — 틀린 문제 (' + h.date + ')';
-  document.getElementById('modal-detail-body').innerHTML = body + aiSection;
+
+  // 3. 취약 영역 (가장 취약한 유형 한 줄)
+  const ranked = ['kor','eng','ord']
+    .map(k => ({ k, c: tc[k], ...TYPE_CARD[k] }))
+    .filter(r => r.c > 0)
+    .sort((a,b) => b.c - a.c);
+  const weaknessLine = ranked.length ? `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:13px">
+      가장 취약: <b style="color:${ranked[0].fg}">${ranked[0].label}</b>
+      <span style="color:var(--text2);font-size:12px"> (${ranked[0].c}/${total}문제, ${Math.round(ranked[0].c/total*100)}%)</span>
+    </div>` : '';
+
+  // 4. 이번 회차 분석 / 누적 분석 토글 버튼
+  const toggleSection = `
+    <div style="display:flex;gap:6px;margin-top:18px">
+      <button type="button" class="btn btn-sm" onclick="toggleModalAnalysis('${h.id}','current')" id="modal-cur-btn" style="flex:1">이번 회차 분석 ▼</button>
+      <button type="button" class="btn btn-sm" onclick="toggleModalAnalysis('${h.id}','cumulative')" id="modal-cum-btn" style="flex:1">누적 분석 ▼</button>
+    </div>
+    <div id="modal-extra-body" style="margin-top:10px"></div>`;
+
+  document.getElementById('detail-name').textContent = h.student + ' — 오답 분석 (' + h.date + ')';
+  document.getElementById('modal-detail-body').innerHTML =
+    sectionHeader('유형별 요약') + typeCardRow +
+    sectionHeader('문제별 원인 분석') + problemCards +
+    sectionHeader('취약 영역') + weaknessLine +
+    toggleSection;
   openModal('modal-student-detail');
+}
+
+function toggleModalAnalysis(hwId, mode) {
+  const h = db.homework.find(h=>h.id===hwId);
+  if (!h) return;
+  const body = document.getElementById('modal-extra-body');
+  const curBtn = document.getElementById('modal-cur-btn');
+  const cumBtn = document.getElementById('modal-cum-btn');
+  const setLabels = (open) => {
+    curBtn.textContent = (open==='current') ? '이번 회차 분석 ▲' : '이번 회차 분석 ▼';
+    cumBtn.textContent = (open==='cumulative') ? '누적 분석 ▲' : '누적 분석 ▼';
+  };
+  if (body.dataset.open === mode) {
+    body.innerHTML = '';
+    body.dataset.open = '';
+    setLabels('');
+    return;
+  }
+  if (mode === 'current') {
+    body.innerHTML = buildCurrentAnalysis(h.wrongs || [], h.student) || '<div style="font-size:12px;color:var(--text3);padding:8px">데이터 없음</div>';
+  } else {
+    const pastHW = db.homework.filter(x => x.student === h.student && x.id !== h.id && x.wrongs && x.wrongs.length);
+    const pastWrongs = pastHW.flatMap(x => x.wrongs||[]);
+    const currentWrongs = h.wrongs || [];
+    const allW = [...pastWrongs, ...currentWrongs];
+    body.innerHTML = allW.length
+      ? buildCumulativeAnalysis(allW, pastHW, currentWrongs, h.student)
+      : '<div style="font-size:12px;color:var(--text3);padding:8px">누적 데이터 없음</div>';
+  }
+  body.dataset.open = mode;
+  setLabels(mode);
+}
+
+function toggleCumulativeInModal(hwId) {
+  const h = db.homework.find(h=>h.id===hwId);
+  if (!h) return;
+  const body = document.getElementById('modal-cum-body');
+  const btn = document.getElementById('modal-cum-btn');
+  if (body.dataset.open === '1') {
+    body.innerHTML = '';
+    body.dataset.open = '';
+    btn.textContent = '누적 분석 보기 ▼';
+    return;
+  }
+  const pastHW = db.homework.filter(x => x.student === h.student && x.id !== h.id && x.wrongs && x.wrongs.length);
+  const pastWrongs = pastHW.flatMap(x => x.wrongs||[]);
+  const currentWrongs = h.wrongs || [];
+  const allW = [...pastWrongs, ...currentWrongs];
+  if (!allW.length) { body.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:8px">누적 데이터 없음</div>'; body.dataset.open = '1'; btn.textContent = '누적 분석 접기 ▲'; return; }
+  body.innerHTML = buildCumulativeAnalysis(allW, pastHW, currentWrongs, h.student);
+  body.dataset.open = '1';
+  btn.textContent = '누적 분석 접기 ▲';
 }
 
 // ===== HELPER: extract type counts from wrongs (supports old+new format) =====
@@ -3617,58 +3882,32 @@ function countTypes(wrongs) {
 // ===== WEAKNESS ANALYSIS (취약점 분석) =====
 function renderWeaknessAnalysis(hwList) {
   const el = document.getElementById('hw-weakness-analysis');
+  if (!el) return;
   const allWrongs = [];
-  hwList.forEach(h => {
-    if (h.wrongs && h.wrongs.length) {
-      h.wrongs.forEach(w => allWrongs.push({ ...w, student: h.student, date: h.date }));
-    }
-  });
+  hwList.forEach(h => { if (h.wrongs && h.wrongs.length) h.wrongs.forEach(w => allWrongs.push(w)); });
   if (!allWrongs.length) { el.innerHTML = ''; return; }
 
-  const tc = countTypes(allWrongs);
-  const total = allWrongs.length;
-  const engPct = total?Math.round(tc.eng/total*100):0;
-  const ordPct = total?Math.round(tc.ord/total*100):0;
-  const korPct = total?Math.round(tc.kor/total*100):0;
-
-  // 학생별
-  const sMap = {};
-  hwList.forEach(h => {
-    if (!h.wrongs||!h.wrongs.length) return;
-    if (!sMap[h.student]) sMap[h.student] = { wrongs:[], dates:{} };
-    h.wrongs.forEach(w => sMap[h.student].wrongs.push(w));
-    if (!sMap[h.student].dates[h.date]) sMap[h.student].dates[h.date]=0;
-    sMap[h.student].dates[h.date] += h.wrongs.length;
+  const pc = {};
+  allWrongs.forEach(w => {
+    const det = w.details||{};
+    (w.types||[]).forEach(t => {
+      if (det[t]) detectErrorPatterns(analyzeChunkDiff(det[t].answer, det[t].studentAns), t).forEach(p => {
+        pc[p.cat] = (pc[p.cat]||0)+1;
+      });
+    });
   });
-
-  const studentCards = Object.entries(sMap).map(([name,d]) => {
-    const sc = countTypes(d.wrongs);
-    const st = d.wrongs.length;
-    const de = Object.entries(d.dates).sort((a,b)=>a[0].localeCompare(b[0])).slice(-5);
-    const mx = Math.max(...de.map(e=>e[1]),1);
-    const bars = de.map(([dt,c])=>`<div style="text-align:center;flex:1"><div style="height:36px;display:flex;align-items:flex-end;justify-content:center"><div style="width:14px;background:var(--accent2);border-radius:3px 3px 0 0;height:${Math.round(c/mx*100)}%;min-height:4px"></div></div><div style="font-size:9px;color:var(--text3);margin-top:2px">${dt.slice(5)}</div><div style="font-size:10px;font-weight:600">${c}</div></div>`).join('');
-    const areas=[{n:'영어어순',c:sc.eng,color:'var(--accent2)'},{n:'순서',c:sc.ord,color:'var(--gold)'},{n:'영작',c:sc.kor,color:'#185FA5'}].sort((a,b)=>b.c-a.c);
-    return `<div style="background:var(--surface2);border-radius:var(--radius-sm);padding:14px;margin-bottom:10px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <div style="display:flex;align-items:center;gap:8px"><b>${name}</b><span class="badge badge-red">${st}문제</span></div>
-        <span style="font-size:11px;color:var(--accent2)">주요 취약: <b>${areas[0].n}</b></span>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">${areas.map(a=>`<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px">${a.n} ${st?Math.round(a.c/st*100):0}%</div><div class="weakness-bar-bg"><div class="weakness-bar-fill" style="width:${st?Math.round(a.c/st*100):0}%;background:${a.color}"></div></div><div style="font-size:11px;font-weight:600;margin-top:2px">${a.c}건</div></div>`).join('')}</div>
-      ${de.length>1?`<div style="margin-bottom:6px"><div style="font-size:10px;color:var(--text3);margin-bottom:4px">날짜별 추이</div><div style="display:flex;gap:4px">${bars}</div></div>`:''}
-    </div>`;
-  }).join('');
-
-  el.innerHTML = `<div class="card" style="margin-top:0">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-      <h4 style="margin:0">오답 유형별 분석</h4><span class="badge badge-gray">총 ${total}문제</span>
+  const data = Object.entries(pc).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([cat,cnt]) => ({
+    category: cat, count: cnt, reason: CAT_REASON[cat]||''
+  }));
+  if (!data.length) { el.innerHTML = ''; return; }
+  el.innerHTML = data.map((item, i) => `
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #eee;font-size:13px">
+      <span style="color:#aaa;font-size:11px;width:20px">${i+1}위</span>
+      <span style="font-weight:500">${item.category}</span>
+      <span style="color:#C4562A;font-size:12px">${item.count}회</span>
+      <span style="color:#888;font-size:12px">${item.reason || ''}</span>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:18px">
-      <div class="weakness-box"><h5>영어 어순 배열</h5><div style="font-size:22px;font-weight:700;color:var(--accent2);margin:4px 0">${engPct}%</div><div class="weakness-bar-wrap"><div class="weakness-bar-bg"><div class="weakness-bar-fill" style="width:${engPct}%;background:var(--accent2)"></div></div><span class="weakness-bar-count">${tc.eng}건</span></div></div>
-      <div class="weakness-box"><h5>순서 배열</h5><div style="font-size:22px;font-weight:700;color:var(--gold);margin:4px 0">${ordPct}%</div><div class="weakness-bar-wrap"><div class="weakness-bar-bg"><div class="weakness-bar-fill" style="width:${ordPct}%;background:var(--gold)"></div></div><span class="weakness-bar-count">${tc.ord}건</span></div></div>
-      <div class="weakness-box"><h5>영작하기</h5><div style="font-size:22px;font-weight:700;color:#185FA5;margin:4px 0">${korPct}%</div><div class="weakness-bar-wrap"><div class="weakness-bar-bg"><div class="weakness-bar-fill" style="width:${korPct}%;background:#185FA5"></div></div><span class="weakness-bar-count">${tc.kor}건</span></div></div>
-    </div>
-    <h4 style="margin-bottom:10px">학생별 상세</h4>${studentCards}
-  </div>`;
+  `).join('');
 }
 
 // ===== AI WRONG PATTERN ANALYSIS =====
@@ -3959,214 +4198,118 @@ function collapsibleSection(id, title, bodyHtml, defaultOpen) {
 }
 
 function buildCurrentAnalysis(wrongs, name) {
+  if (!wrongs.length) return '';
   const tc = countTypes(wrongs);
-  const total = wrongs.length;
-
-  // 과거 오답
-  const studentName = document.getElementById('hw-student-sel')?.value || name;
-  const pastHW = db.homework.filter(h=>h.student===studentName && h.wrongs && h.wrongs.length);
-  const pastWrongs = pastHW.flatMap(h=>h.wrongs);
-
-  // 유형별 요약 (0 제외) - 한 줄 리스트
   const typeRows = ['eng','ord','kor'].map(k => ({k, c: tc[k], ...TYPE_STYLE[k]}))
     .filter(r => r.c > 0)
     .sort((a,b) => b.c - a.c);
-  const typeSummary = typeRows.length ? typeRows.map(r =>
-    `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;text-align:left">
-      <span>${r.label}</span>
-      <span style="color:var(--text2)">${r.c}문제</span>
-    </div>`).join('') : '';
 
-  // 패턴 수집
-  const allPatterns = [];
+  // 유형별 요약 (0 제외)
+  const summary = typeRows.map(r =>
+    `<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px">
+      <span>${r.label}</span><span style="color:var(--text2)">${r.c}문제</span>
+    </div>`).join('');
+
+  // 취약 영역 (이 회차 오류 패턴 순위)
+  const pc = {};
   wrongs.forEach(w => {
-    const det = w.details || {};
+    const det = w.details||{};
     (w.types||[]).forEach(t => {
-      if (det[t]) detectErrorPatterns(analyzeChunkDiff(det[t].answer, det[t].studentAns), t).forEach(p => allPatterns.push(p));
-    });
-  });
-  const pastPatternCatCounts = {};
-  pastWrongs.forEach(pw => {
-    const det = pw.details||{};
-    (pw.types||[]).forEach(t => {
       if (det[t]) detectErrorPatterns(analyzeChunkDiff(det[t].answer, det[t].studentAns), t).forEach(p => {
-        pastPatternCatCounts[p.cat] = (pastPatternCatCounts[p.cat]||0)+1;
+        pc[p.cat] = (pc[p.cat]||0)+1;
       });
     });
   });
-  const catCounts = {};
-  allPatterns.forEach(p => catCounts[p.cat] = (catCounts[p.cat]||0)+1);
-
-  // 문제별 비교 카드 (padding 10px 12px, 한 줄에 번호+뱃지)
-  const problemsBody = wrongs.map((w,i) => {
-    const det = w.details || {};
-    const ts = w.types || [];
-    const typeLabels = ts.map(t => `<span style="padding:1px 7px;border-radius:10px;font-size:10px;background:${getTypeBg(t)};color:${getTypeColor(t)};font-weight:600">${getTypeLabel(t)}</span>`).join(' ');
-    const itemCats = new Set();
-    const typeAnalysis = ts.map(t => {
-      const d = det[t]; if (!d) return '';
-      const diffs = analyzeChunkDiff(d.answer, d.studentAns);
-      detectErrorPatterns(diffs, t).forEach(p => itemCats.add(p.cat));
-      const hl = highlightChunks(d.answer||'', d.studentAns||'');
-      return `<div style="margin-top:4px;padding-left:8px;border-left:2px solid ${getTypeColor(t)}">
-        <div style="font-size:10px;font-weight:600;color:${getTypeColor(t)}">${getTypeLabel(t)}</div>
-        ${d.answer?`<div style="font-size:12px;line-height:1.4"><span style="font-size:10px;color:var(--accent);font-weight:600">정답</span> ${hl.ansHtml}</div>`:''}
-        ${d.studentAns?`<div style="font-size:12px;line-height:1.4"><span style="font-size:10px;color:var(--accent2);font-weight:600">학생</span> ${hl.stuHtml}</div>`:''}
-      </div>`;
-    }).join('');
-    const tags = [...itemCats];
-    const tagsHtml = tags.length ? `<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:6px">
-      ${tags.map(c => `<span style="font-size:9px;padding:2px 7px;border-radius:10px;background:${(CAT_COLOR[c]||'#999')}20;color:${CAT_COLOR[c]||'var(--text2)'};font-weight:600">🏷 ${c}</span>`).join('')}
+  const ranked = Object.entries(pc).sort((a,b)=>b[1]-a[1]);
+  const weakness = ranked.length ? `
+    <div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--border)">
+      <div style="font-size:12px;color:var(--text3);margin-bottom:4px">취약 영역</div>
+      ${ranked.map(([cat,cnt],i) => `
+        <div style="padding:7px 0;${i<ranked.length-1?'border-bottom:1px solid var(--border)':''}">
+          <div style="display:flex;align-items:baseline;gap:10px;font-size:13px">
+            <span style="color:var(--text3);font-size:12px;width:28px">${i+1}위</span>
+            <span style="font-weight:500">${cat}</span>
+            <span style="color:var(--text2);font-size:12px">${cnt}회</span>
+          </div>
+          ${CAT_REASON[cat]?`<div style="margin-left:38px;margin-top:3px;font-size:12px;color:var(--text3)">${CAT_REASON[cat]}</div>`:''}
+        </div>`).join('')}
     </div>` : '';
-    return `<div style="padding:10px 12px;border-bottom:1px solid var(--border);text-align:left">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-        <b style="font-size:12px;color:var(--accent2)">${w.num||i+1}번</b>
-        ${typeLabels}
-      </div>
-      ${typeAnalysis}
-      ${tagsHtml}
-    </div>`;
-  }).join('');
 
-  // 핵심 약점 TOP 3 - 한 줄 리스트 (카드 없음)
-  const combined = {};
-  Object.keys(catCounts).forEach(c => combined[c] = (combined[c]||0)+catCounts[c]);
-  Object.keys(pastPatternCatCounts).forEach(c => combined[c] = (combined[c]||0)+pastPatternCatCounts[c]);
-  const top3 = Object.entries(combined).sort((a,b)=>b[1]-a[1]).slice(0,3);
-  const top3Body = top3.length ? top3.map(([cat,cnt],i) => {
-    const color = CAT_COLOR[cat] || 'var(--text2)';
-    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;text-align:left">
-      <span style="font-weight:600;color:var(--text3);width:32px;flex-shrink:0">${i+1}위</span>
-      <span style="font-weight:600;color:${color};min-width:90px">${cat}</span>
-      <span style="color:var(--text2);width:40px;flex-shrink:0">${cnt}회</span>
-      <span style="color:var(--text2);flex:1;font-size:12px">${CAT_REASON[cat]||''}</span>
-    </div>`;
-  }).join('') : '<div style="font-size:13px;color:var(--text3);padding:10px 0">감지된 패턴 없음</div>';
-
-  // 누적 비교 - 한 줄 리스트
-  const curCatSet = new Set(Object.keys(catCounts));
-  const pastCatsSet = new Set(Object.keys(pastPatternCatCounts));
-  const improved = [...pastCatsSet].filter(c => !curCatSet.has(c));
-  const repeating = [...curCatSet].filter(c => pastCatsSet.has(c));
-  const brandNew = [...curCatSet].filter(c => !pastCatsSet.has(c));
-  let compareBody;
-  if (!pastWrongs.length) {
-    compareBody = '<div style="font-size:13px;color:var(--text3);padding:10px 0">첫 기록 — 다음 회차부터 비교 가능</div>';
-  } else {
-    const lines = [];
-    improved.forEach(c => lines.push({icon:'✅',text:`<b>${c}</b> — 이번엔 안 나타남`}));
-    repeating.forEach(c => lines.push({icon:'⚠️',text:`<b>${c}</b> — 이전 ${pastPatternCatCounts[c]||0}회 + 이번 ${catCounts[c]||0}회`}));
-    brandNew.forEach(c => lines.push({icon:'🆕',text:`<b>${c}</b> — 이번에 새로 감지`}));
-    compareBody = lines.length ? lines.map(l => `<div style="display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;text-align:left">
-      <span>${l.icon}</span><span>${l.text}</span>
-    </div>`).join('') : '<div style="font-size:13px;color:var(--text3);padding:10px 0">변화 없음</div>';
-  }
-
-  // 헤더 (배경 없음)
-  const header = `<div style="display:flex;align-items:center;gap:6px;padding:10px 0;border-bottom:1px solid var(--border);text-align:left">
-    <b style="color:var(--accent2);font-size:14px">이번 회차 분석</b>
-    <span style="font-size:12px;color:var(--text3)">${name}</span>
-    <span class="badge badge-red" style="margin-left:auto;font-size:10px">총 ${total}문제</span>
-  </div>`;
-
-  const section = (title, body) => `<div style="margin-top:14px;text-align:left">
-    <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px">${title}</div>
-    ${body}
-  </div>`;
-
-  return `<div style="background:var(--surface);padding:0 2px;text-align:left">
-    ${header}
-    ${typeSummary?section('유형별 요약', typeSummary):''}
-    ${section('문제별 비교', problemsBody)}
-    ${section('핵심 약점 TOP 3', top3Body)}
-    ${section('누적 비교', compareBody)}
+  return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 16px">
+    ${summary}
+    ${weakness}
   </div>`;
 }
 
 function buildCumulativeAnalysis(allWrongs, pastHW, currentWrongs, name) {
-  const total = allWrongs.length;
-  if (!total) return `<div style="padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:12px;color:var(--text3)">누적 데이터가 없습니다.</div>`;
+  if (!allWrongs.length) return '';
 
-  const tc = countTypes(allWrongs);
-  const sessions = pastHW.map(h => ({ date: h.date, wrongs: h.wrongs, tc: countTypes(h.wrongs), total: h.wrongs.length }));
-  if (currentWrongs.length) sessions.push({ date: '이번', wrongs: currentWrongs, tc: countTypes(currentWrongs), total: currentWrongs.length });
+  const countPatterns = (arr) => {
+    const pc = {};
+    arr.forEach(w => {
+      const det = w.details||{};
+      (w.types||[]).forEach(t => {
+        if (det[t]) detectErrorPatterns(analyzeChunkDiff(det[t].answer, det[t].studentAns), t).forEach(p => {
+          pc[p.cat] = (pc[p.cat]||0)+1;
+        });
+      });
+    });
+    return pc;
+  };
 
-  // 유형별 요약 (0 제외)
-  const typeRows = ['eng','ord','kor'].map(k => ({k, c: tc[k], ...TYPE_STYLE[k]}))
-    .filter(r => r.c > 0)
-    .sort((a,b) => b.c - a.c);
-  const typeSummary = typeRows.length ? `<div>
-    ${typeRows.map(r => `<div style="padding:12px 0;border-bottom:1px solid var(--border);font-size:13px">${r.label} — ${r.c}건</div>`).join('')}
-  </div>` : '';
+  const allPc = countPatterns(allWrongs);
+  const sorted = Object.entries(allPc).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  if (!sorted.length) return '';
 
-  // 변화율 (첫↔최근)
-  let trendRow = '';
-  if (sessions.length >= 2) {
-    const fTotal = sessions[0].total, lTotal = sessions[sessions.length-1].total;
-    const diff = fTotal - lTotal;
-    const pct = fTotal ? Math.round(diff/fTotal*100) : 0;
-    const improved = diff > 0;
-    trendRow = `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:${improved?'var(--accent-light)':'var(--accent2-light)'};border-radius:6px;border-left:3px solid ${improved?'var(--accent)':'var(--accent2)'};font-size:12px;margin-bottom:6px">
-      <span style="font-size:16px;font-weight:700;color:${improved?'var(--accent)':'var(--accent2)'}">${improved?'↓':'↑'} ${Math.abs(pct)}%</span>
-      <span style="color:var(--text2)">${improved?'개선':'악화'} (첫 ${fTotal}문제 → 최근 ${lTotal}문제)</span>
+  // 순위 (2줄 포맷: 1위 카테고리 N회 / 이유)
+  const ranking = sorted.map(([cat,cnt],i) => `
+    <div style="padding:10px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:baseline;gap:10px;font-size:13px">
+        <span style="color:var(--text3);font-size:12px;width:28px">${i+1}위</span>
+        <span style="font-weight:500">${cat}</span>
+        <span style="color:var(--text2);font-size:12px">${cnt}회</span>
+      </div>
+      ${CAT_REASON[cat]?`<div style="margin-left:38px;margin-top:3px;font-size:12px;color:var(--text3)">${CAT_REASON[cat]}</div>`:''}
+    </div>`).join('');
+
+  // 이전 기록 대비
+  const pastWrongs = pastHW.flatMap(h => h.wrongs||[]);
+  let compare = '';
+  if (pastWrongs.length && currentWrongs.length) {
+    const pastPc = countPatterns(pastWrongs);
+    const curPc = countPatterns(currentWrongs);
+    const improved = Object.keys(pastPc).filter(c => !curPc[c]);
+    const repeating = Object.keys(curPc).filter(c => pastPc[c]);
+    const improvedHtml = improved.length
+      ? improved.map(c => `<div style="padding:4px 0;font-size:13px;color:var(--text2)">✅ ${c} <span style="color:var(--text3);font-size:12px">— 이번엔 안 나타남</span></div>`).join('')
+      : `<div style="padding:4px 0;font-size:12px;color:var(--text3)">없음</div>`;
+    const repeatHtml = repeating.length
+      ? repeating.map(c => `<div style="padding:4px 0;font-size:13px;color:var(--text2)">⚠️ ${c} <span style="color:var(--text3);font-size:12px">— 이전 ${pastPc[c]}회 · 이번 ${curPc[c]}회</span></div>`).join('')
+      : `<div style="padding:4px 0;font-size:12px;color:var(--text3)">없음</div>`;
+
+    compare = `<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+      <div style="font-size:12px;color:var(--text3);margin-bottom:6px">이전 기록 대비</div>
+      <div style="font-size:12px;color:var(--text2);margin:6px 0 2px">나아진 것</div>
+      ${improvedHtml}
+      <div style="font-size:12px;color:var(--text2);margin:8px 0 2px">반복되는 것</div>
+      ${repeatHtml}
     </div>`;
   }
 
-  // 회차별 추이 (미니 바)
-  const maxS = Math.max(...sessions.map(s=>s.total),1);
-  const trendBars = sessions.length >= 2 ? sessions.slice(-6).map(s => {
-    return `<div style="text-align:center;flex:1">
-      <div style="height:40px;display:flex;align-items:flex-end;justify-content:center;gap:1px">
-        ${s.tc.eng?`<div style="width:5px;background:var(--accent2);border-radius:2px 2px 0 0;height:${Math.round(s.tc.eng/maxS*100)}%;min-height:2px"></div>`:''}
-        ${s.tc.ord?`<div style="width:5px;background:var(--gold);border-radius:2px 2px 0 0;height:${Math.round(s.tc.ord/maxS*100)}%;min-height:2px"></div>`:''}
-        ${s.tc.kor?`<div style="width:5px;background:#185FA5;border-radius:2px 2px 0 0;height:${Math.round(s.tc.kor/maxS*100)}%;min-height:2px"></div>`:''}
-      </div>
-      <div style="font-size:9px;color:var(--text3);margin-top:3px">${s.date==='이번'?'이번':s.date.slice(5)}</div>
-      <div style="font-size:10px;font-weight:600">${s.total}</div>
-    </div>`;
-  }).join('') : '';
-  const trendBody = trendBars ? `<div style="display:flex;gap:3px;align-items:flex-end">${trendBars}</div>` : '<div style="font-size:12px;color:var(--text3);padding:4px 0">2회차 이상 기록이 필요합니다</div>';
-
-  // 누적 패턴 TOP (카테고리별)
-  const cumPatterns = [];
-  allWrongs.forEach(w => {
-    const det = w.details||{};
-    (w.types||[]).forEach(t => {
-      if (det[t]) cumPatterns.push(...detectErrorPatterns(analyzeChunkDiff(det[t].answer, det[t].studentAns), t));
-    });
-  });
-  const pc = {}; cumPatterns.forEach(p => pc[p.cat] = (pc[p.cat]||0)+1);
-  const sorted = Object.entries(pc).sort((a,b)=>b[1]-a[1]).slice(0,6);
-  const patternBody = sorted.length ? sorted.map(([p,c]) => {
-    const color = CAT_COLOR[p] || 'var(--text2)';
-    return `<div style="display:flex;align-items:center;gap:8px;padding:5px 10px;background:var(--surface2);border-radius:6px;border-left:3px solid ${color};font-size:12px;margin-bottom:3px">
-      <span style="flex:1"><b style="color:${color}">${p}</b></span>
-      <span style="font-size:10px;padding:1px 7px;border-radius:8px;background:${color}20;color:${color};font-weight:600">${c}회</span>
-    </div>`;
-  }).join('') : '<div style="font-size:12px;color:var(--text3);padding:4px 0">감지된 패턴 없음</div>';
-
-  return `<div style="padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px">
-    <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)">
-      <b style="color:var(--accent)">누적 분석</b>
-      <span style="font-size:11px;color:var(--text3)">${name}</span>
-      <span class="badge badge-gray" style="margin-left:auto;font-size:10px">전체 ${total}문제 · ${sessions.length}회차</span>
-    </div>
-    ${trendRow}
-    ${typeSummary?analysisSectionHeader('유형별 요약')+typeSummary:''}
-    <div style="margin-top:10px"></div>
-    ${collapsibleSection('ctrend','📊 회차별 추이', trendBody, false)}
-    ${collapsibleSection('cpat','⚡ 누적 오류 패턴', patternBody, false)}
+  return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 16px">
+    ${ranking}
+    ${compare}
   </div>`;
 }
 
 function renderAIAnalysisHTML(text) {
-  let html = text
-    .replace(/## (.+)/g, '<div style="font-size:13px;font-weight:700;color:var(--accent);margin:12px 0 6px;border-bottom:1px solid var(--border);padding-bottom:4px">$1</div>')
+  // 구형 섹션(해결 방법/즉시 보강/수업 활용/추가 과제) 제거
+  let cleaned = (text||'').replace(/##\s*(해결\s*방법|즉시\s*보강|수업\s*활용|추가\s*과제)[\s\S]*?(?=##|$)/g, '');
+  const html = cleaned
+    .replace(/## (.+)/g, '<div style="font-size:13px;font-weight:600;margin:10px 0 4px">$1</div>')
     .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
-    .replace(/^(\d+)\.\s/gm, '<span style="color:var(--accent2);font-weight:600">$1.</span> ')
-    .replace(/^- /gm, '<span style="color:var(--accent)">  ·</span> ')
     .replace(/\n/g, '<br>');
-  return `<div class="ai-result" style="font-size:12px;line-height:1.8;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px">${html}</div>`;
+  return `<div style="font-size:13px;line-height:1.7">${html}</div>`;
 }
 
 // ===== SUPPLEMENT RECORDS (보충 기록) =====
@@ -4563,7 +4706,17 @@ function getVocabStats(studentName) {
     else if (lScore < pScore) trend='down';
     else trend='same';
   }
-  return { tests, newT, cumT, lastNew, lastCum, last, trend };
+  // 평균 온라인 소요 시간 (기록 있는 회차만)
+  const onlineTests = tests.filter(t => typeof t.onlineMin === 'number' && t.onlineMin > 0);
+  const avgOnline = onlineTests.length ? Math.round(onlineTests.reduce((a,t)=>a+t.onlineMin,0)/onlineTests.length) : null;
+
+  // 하브루타 통계
+  const hvTests = tests.filter(t => t.havruta === 'pass' || t.havruta === 'fail');
+  const hvPass = hvTests.filter(t => t.havruta === 'pass').length;
+  const hvRate = hvTests.length ? Math.round(hvPass/hvTests.length*100) : null;
+  const lastHv = [...tests].reverse().find(t => t.havruta === 'pass' || t.havruta === 'fail') || null;
+
+  return { tests, newT, cumT, lastNew, lastCum, last, trend, avgOnline, hvRate, hvPass, hvTotal: hvTests.length, lastHv };
 }
 function scoreOf(t) { return t.total ? Math.round((t.total-t.wrong)/t.total*100) : 0; }
 
@@ -4621,6 +4774,9 @@ function renderVocabClass(cls, students) {
           </div>
           <div style="font-size:10px;color:var(--text2);margin-top:2px">
             새로운 단어 ${stat.newT.length?stat.newT.length+'차':'—'} · 누적 ${stat.cumT.length?stat.cumT.length+'차':'—'}
+            ${stat.avgOnline!=null?` · ⏱ 평균 ${stat.avgOnline}분`:''}
+            ${stat.hvRate!=null?` · 🗣️ ${stat.hvRate}% (${stat.hvPass}/${stat.hvTotal})`:''}
+            ${stat.lastHv?` <span style="color:${stat.lastHv.havruta==='pass'?'var(--accent)':'var(--accent2)'};font-weight:600">${stat.lastHv.havruta==='pass'?'최근 통과':'최근 미통과'}</span>`:''}
             ${sups.length?` · 🕐 스테이 ${sups.length}회(${stayMins}분)`:''}
           </div>
         </div>
@@ -4660,86 +4816,259 @@ function openVocabTestModal(classId, studentName) {
   const students = db.students.filter(s=>s.classId===classId);
   if (!students.length) { alert('먼저 학생을 등록해주세요.'); return; }
   const preselect = studentName || students[0].name;
-  // 다음 차수 자동 계산
   const tests = (db.vocabTests||[]).filter(t=>t.student===preselect);
   const newRound = tests.filter(t=>t.type==='new').length + 1;
   const cumRound = tests.filter(t=>t.type==='cumul').length + 1;
 
   const body = `<div>
+    <!-- 출석/결석 -->
+    <div class="field" style="margin-bottom:10px">
+      <label>출결</label>
+      <div style="display:flex;gap:6px">
+        <button type="button" class="type-chip on-eng" id="vt-att-present" onclick="pickVocabAttend('present')">출석</button>
+        <button type="button" class="type-chip" id="vt-att-absent" onclick="pickVocabAttend('absent')">결석</button>
+      </div>
+    </div>
+
     <div class="field-row">
       <div class="field"><label>날짜</label><input type="date" id="vt-date" value="${new Date().toISOString().split('T')[0]}" /></div>
       <div class="field"><label>학생</label><select id="vt-student" onchange="autoFillVocabRound()">${students.map(s=>`<option${s.name===preselect?' selected':''}>${s.name}</option>`).join('')}</select></div>
     </div>
-    <div class="field"><label>시험 종류</label>
-      <div style="display:flex;gap:6px">
-        <span class="type-chip on-eng" data-vtype="new" onclick="pickVocabType(this)">새로운 단어 테스트</span>
-        <span class="type-chip" data-vtype="cumul" onclick="pickVocabType(this)">누적 테스트</span>
+
+    <!-- 결석 전용 -->
+    <div id="vt-absent-fields" style="display:none">
+      <div class="field"><label>결석 사유</label><input id="vt-abs-reason" placeholder="예: 병결, 개인사정, 무단" /></div>
+    </div>
+
+    <!-- 시험 전용 -->
+    <div id="vt-present-fields">
+      <!-- 온라인 소요 시간 (공용) -->
+      <div class="field">
+        <label>온라인 소요 시간</label>
+        <div style="display:flex;align-items:center;gap:6px">
+          <input type="number" id="vt-online" min="0" placeholder="분" style="width:100px" />
+          <span style="font-size:13px;color:var(--text2)">분</span>
+          <span style="font-size:11px;color:var(--text3);margin-left:6px">새로운 단어 + 누적 합산</span>
+        </div>
+      </div>
+
+      <!-- 새로운 단어 테스트 (독립 입력) -->
+      <div class="field" style="padding-top:10px;margin-top:10px;border-top:1px dashed var(--border)">
+        <label style="font-weight:600;margin-bottom:6px;display:block">📗 새로운 단어 테스트 <span style="font-size:11px;color:var(--text3);font-weight:400">(비워두면 저장 안 함)</span></label>
+        <div class="field-row">
+          <div class="field" style="margin-bottom:0"><label>몇 차</label><input type="number" id="vt-new-round" min="1" value="${newRound}" style="width:80px" /></div>
+          <div class="field" style="margin-bottom:0"><label>전체 개수</label><input type="number" id="vt-new-total" min="0" placeholder="예: 50" style="width:110px" /></div>
+          <div class="field" style="margin-bottom:0"><label>틀린 개수</label><input type="number" id="vt-new-wrong" min="0" placeholder="예: 3" style="width:110px" /></div>
+        </div>
+        <div id="vt-new-score" style="font-size:12px;color:var(--text3);margin-top:4px"></div>
+      </div>
+
+      <!-- 누적 테스트 (독립 입력) -->
+      <div class="field" style="padding-top:10px;margin-top:10px;border-top:1px dashed var(--border)">
+        <label style="font-weight:600;margin-bottom:6px;display:block">📘 누적 테스트 <span style="font-size:11px;color:var(--text3);font-weight:400">(비워두면 저장 안 함)</span></label>
+        <div class="field-row">
+          <div class="field" style="margin-bottom:0"><label>몇 차</label><input type="number" id="vt-cum-round" min="1" value="${cumRound}" style="width:80px" /></div>
+          <div class="field" style="margin-bottom:0"><label>전체 개수</label><input type="number" id="vt-cum-total" min="0" placeholder="예: 50" style="width:110px" /></div>
+          <div class="field" style="margin-bottom:0"><label>틀린 개수</label><input type="number" id="vt-cum-wrong" min="0" placeholder="예: 3" style="width:110px" /></div>
+        </div>
+        <div id="vt-cum-score" style="font-size:12px;color:var(--text3);margin-top:4px"></div>
+      </div>
+
+      <!-- 하브루타 섹션 -->
+      <div class="field" style="padding-top:10px;margin-top:10px;border-top:1px dashed var(--border)">
+        <label style="font-weight:600;margin-bottom:6px;display:block">🗣️ 하브루타</label>
+        <div style="display:flex;gap:6px;margin-bottom:6px">
+          <button type="button" class="type-chip" id="vt-hv-pass" onclick="pickVocabHavruta('pass')">통과</button>
+          <button type="button" class="type-chip" id="vt-hv-fail" onclick="pickVocabHavruta('fail')">미통과</button>
+          <button type="button" class="type-chip on-eng" id="vt-hv-none" onclick="pickVocabHavruta('none')">미진행</button>
+        </div>
+        <div id="vt-hv-fail-fields" style="display:none;margin-top:6px;padding-left:4px">
+          <div class="field-row">
+            <div class="field" style="margin-bottom:0">
+              <label>몇 차 시도</label>
+              <input type="number" id="vt-hv-attempt" min="1" value="1" style="width:80px" />
+            </div>
+            <div class="field" style="margin-bottom:0;flex:1">
+              <label>메모</label>
+              <input id="vt-hv-memo" placeholder="예: 뜻 2개 놓침, 발음 부정확" />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
-    <div class="field-row">
-      <div class="field"><label>몇 차 시험</label><input type="number" id="vt-round" min="1" value="${newRound}" style="width:80px" /></div>
-      <div class="field"><label>전체 단어 개수</label><input type="number" id="vt-total" min="1" placeholder="예: 50" style="width:100px" /></div>
+
+    <!-- 특이사항 (항상 표시) -->
+    <div class="field" style="padding-top:10px;margin-top:10px;border-top:1px dashed var(--border)">
+      <label style="font-weight:600;margin-bottom:6px;display:block">특이사항</label>
+      <label style="display:flex;align-items:center;gap:10px;font-size:13px;padding:6px 0;cursor:pointer;line-height:1.4">
+        <input type="checkbox" id="vt-flag-orange" style="flex-shrink:0;width:16px;height:16px;margin:0" />
+        <span>오렌지 파일 미지참 (포스트잇 처리)</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;font-size:13px;padding:6px 0;cursor:pointer;line-height:1.4">
+        <input type="checkbox" id="vt-flag-skip" style="flex-shrink:0;width:16px;height:16px;margin:0" />
+        <span>단어 미완료 → 공강 처리</span>
+      </label>
+      <div style="font-size:12px;color:var(--text3);margin:8px 0 4px">기타 특이사항</div>
+      <input id="vt-memo" placeholder="예: 단어 개수 조정, 자리 변경 등" />
     </div>
-    <div class="field"><label>틀린 단어 개수</label>
-      <input type="number" id="vt-wrong" min="0" placeholder="예: 3" style="width:100px" />
-      <div id="vt-score-preview" style="font-size:12px;color:var(--text3);margin-top:4px"></div>
-    </div>
-    <div class="field"><label>메모 (선택)</label><input id="vt-memo" placeholder="특이사항" /></div>
-    <div style="display:flex;gap:8px;margin-top:8px">
+
+    <div style="display:flex;gap:8px;margin-top:12px">
       <button class="btn btn-primary" onclick="saveVocabTest('${classId}')">저장</button>
       <button class="btn" onclick="closeModal('modal-student-detail')">취소</button>
     </div>
   </div>`;
   document.getElementById('detail-name').textContent = '단어시험 기록';
   document.getElementById('modal-detail-body').innerHTML = body;
-  vtSelectedType = 'new';
-  // 점수 실시간 프리뷰
-  const upd = () => {
-    const t = parseInt(document.getElementById('vt-total').value)||0;
-    const w = parseInt(document.getElementById('vt-wrong').value)||0;
-    const pv = document.getElementById('vt-score-preview');
+  vtAttend = 'present';
+  vtHavruta = 'none';
+  // 점수 실시간 프리뷰 (각 테스트별)
+  const mkUpd = (totalId, wrongId, pvId) => () => {
+    const t = parseInt(document.getElementById(totalId).value)||0;
+    const w = parseInt(document.getElementById(wrongId).value)||0;
+    const pv = document.getElementById(pvId);
     if (t>0) pv.textContent = `자동 계산 점수: ${Math.round((t-w)/t*100)}점 (맞음 ${t-w} / 전체 ${t})`;
     else pv.textContent = '';
   };
-  ['vt-total','vt-wrong'].forEach(id=>document.getElementById(id).oninput=upd);
+  const updNew = mkUpd('vt-new-total','vt-new-wrong','vt-new-score');
+  const updCum = mkUpd('vt-cum-total','vt-cum-wrong','vt-cum-score');
+  ['vt-new-total','vt-new-wrong'].forEach(id=>document.getElementById(id).oninput=updNew);
+  ['vt-cum-total','vt-cum-wrong'].forEach(id=>document.getElementById(id).oninput=updCum);
   openModal('modal-student-detail');
 }
 
-function autoFillVocabRound() {
-  const name = document.getElementById('vt-student').value;
-  const tests = (db.vocabTests||[]).filter(t=>t.student===name);
-  const round = tests.filter(t=>t.type===vtSelectedType).length + 1;
-  document.getElementById('vt-round').value = round;
+let vtAttend = 'present';
+function pickVocabAttend(mode) {
+  vtAttend = mode;
+  document.getElementById('vt-att-present').classList.toggle('on-eng', mode==='present');
+  document.getElementById('vt-att-absent').classList.toggle('on-eng', mode==='absent');
+  document.getElementById('vt-present-fields').style.display = mode==='present' ? 'block' : 'none';
+  document.getElementById('vt-absent-fields').style.display = mode==='absent' ? 'block' : 'none';
 }
 
+let vtHavruta = 'none';
+function pickVocabHavruta(mode) {
+  vtHavruta = mode;
+  ['pass','fail','none'].forEach(m => {
+    document.getElementById('vt-hv-'+m).classList.toggle('on-eng', m===mode);
+  });
+  document.getElementById('vt-hv-fail-fields').style.display = mode==='fail' ? 'block' : 'none';
+}
+
+function autoFillVocabRound() {
+  // 학생 변경 시 새로운/누적 차수 각각 자동 채우기
+  const name = document.getElementById('vt-student').value;
+  const tests = (db.vocabTests||[]).filter(t=>t.student===name);
+  const nr = tests.filter(t=>t.type==='new').length + 1;
+  const cr = tests.filter(t=>t.type==='cumul').length + 1;
+  const nrEl = document.getElementById('vt-new-round'); if (nrEl) nrEl.value = nr;
+  const crEl = document.getElementById('vt-cum-round'); if (crEl) crEl.value = cr;
+}
+
+// 레거시 호환용 (더이상 사용 안 함)
 let vtSelectedType = 'new';
 function pickVocabType(el) {
   vtSelectedType = el.dataset.vtype;
   el.closest('div').querySelectorAll('.type-chip').forEach(c => {
     c.className = 'type-chip' + (c.dataset.vtype===vtSelectedType?' on-eng':'');
   });
-  autoFillVocabRound();
 }
 
 function saveVocabTest(classId) {
   if (!db.vocabTests) db.vocabTests=[];
-  const total = parseInt(document.getElementById('vt-total').value)||0;
-  const wrong = parseInt(document.getElementById('vt-wrong').value)||0;
-  if (!total) { alert('전체 단어 개수를 입력하세요'); return; }
-  const score = Math.round((total-wrong)/total*100);
-  db.vocabTests.push({
-    id: 'vt_'+Date.now(),
-    classId,
-    date: document.getElementById('vt-date').value,
-    student: document.getElementById('vt-student').value,
-    type: vtSelectedType,
-    round: parseInt(document.getElementById('vt-round').value)||1,
-    total,
-    wrong,
-    score,
-    wrongs: [],
-    memo: document.getElementById('vt-memo').value
-  });
+  const isAbsent = vtAttend === 'absent';
+  const flagOrange = document.getElementById('vt-flag-orange')?.checked || false;
+  const flagSkip = document.getElementById('vt-flag-skip')?.checked || false;
+  const memo = document.getElementById('vt-memo')?.value?.trim() || '';
+
+  // 하브루타
+  const hvAttempt = parseInt(document.getElementById('vt-hv-attempt')?.value)||1;
+  const hvMemo = document.getElementById('vt-hv-memo')?.value?.trim() || '';
+
+  // 다음 수업 체크사항 자동 생성
+  const checkParts = [];
+  if (flagOrange) checkParts.push('오렌지 파일 미지참 확인');
+  if (flagSkip) checkParts.push('공강 처리 확인');
+  if (!isAbsent && vtHavruta === 'fail') {
+    checkParts.push(`하브루타 ${hvAttempt}차 미통과${hvMemo?' ('+hvMemo+')':''}`);
+  }
+  if (memo) checkParts.push(memo);
+  if (isAbsent) {
+    const reason = document.getElementById('vt-abs-reason')?.value?.trim() || '';
+    checkParts.unshift(`결석${reason?' ('+reason+')':''}`);
+  }
+  const nextCheck = checkParts.join(', ');
+
+  const date = document.getElementById('vt-date').value;
+  const student = document.getElementById('vt-student').value;
+  const baseMeta = {
+    classId, date, student,
+    absent: isAbsent,
+    absReason: isAbsent ? (document.getElementById('vt-abs-reason')?.value || '') : '',
+    flagOrange, flagSkip, memo,
+    nextCheck, nextCheckDone: false,
+    wrongs: []
+  };
+
+  if (isAbsent) {
+    db.vocabTests.push({
+      id: 'vt_'+Date.now(),
+      ...baseMeta,
+      type:'', round:0, total:0, wrong:0, score:null
+    });
+  } else {
+    // 각 테스트 종류마다 독립 저장
+    const newTotal = parseInt(document.getElementById('vt-new-total').value)||0;
+    const newWrong = parseInt(document.getElementById('vt-new-wrong').value)||0;
+    const cumTotal = parseInt(document.getElementById('vt-cum-total').value)||0;
+    const cumWrong = parseInt(document.getElementById('vt-cum-wrong').value)||0;
+
+    if (!newTotal && !cumTotal) {
+      alert('새로운 단어 테스트나 누적 테스트 중 하나 이상의 전체 개수를 입력하세요.');
+      return;
+    }
+
+    const onlineMin = parseInt(document.getElementById('vt-online')?.value)||0;
+    const hvData = {
+      havruta: vtHavruta,
+      havrutaAttempt: vtHavruta==='fail' ? hvAttempt : 0,
+      havrutaMemo: vtHavruta==='fail' ? hvMemo : ''
+    };
+    // 두 개 다 저장할 경우 온라인/하브루타는 '새로운 단어'에만 기록 (중복 방지)
+    let idSeed = Date.now();
+    let firstAttached = false;
+
+    if (newTotal) {
+      db.vocabTests.push({
+        id: 'vt_'+(idSeed++),
+        ...baseMeta,
+        type: 'new',
+        round: parseInt(document.getElementById('vt-new-round').value)||1,
+        total: newTotal, wrong: newWrong,
+        score: Math.round((newTotal-newWrong)/newTotal*100),
+        onlineMin,
+        ...hvData
+      });
+      firstAttached = true;
+    }
+    if (cumTotal) {
+      db.vocabTests.push({
+        id: 'vt_'+(idSeed++),
+        ...baseMeta,
+        type: 'cumul',
+        round: parseInt(document.getElementById('vt-cum-round').value)||1,
+        total: cumTotal, wrong: cumWrong,
+        score: Math.round((cumTotal-cumWrong)/cumTotal*100),
+        // 새로운 단어에 이미 붙였으면 중복 방지
+        onlineMin: firstAttached ? 0 : onlineMin,
+        havruta: firstAttached ? 'none' : hvData.havruta,
+        havrutaAttempt: firstAttached ? 0 : hvData.havrutaAttempt,
+        havrutaMemo: firstAttached ? '' : hvData.havrutaMemo,
+        // nextCheck는 한 번만 (새로운 쪽에 이미 기록) — 중복 방지
+        nextCheck: firstAttached ? '' : baseMeta.nextCheck,
+        nextCheckDone: firstAttached ? false : baseMeta.nextCheckDone
+      });
+    }
+  }
   saveDB(); closeModal('modal-student-detail'); renderPage();
 }
 
@@ -4803,10 +5132,7 @@ function showVocabDetail(studentId) {
       </div>
       <div class="field">
         <label>시간</label>
-        <select id="vse-time-${s.id}" style="max-width:200px">
-          <option value="">시간 미정</option>
-          ${timeOptions.map(t=>`<option${t===s.vocabTime?' selected':''}>${t}</option>`).join('')}
-        </select>
+        <div id="vse-time-${s.id}"></div>
       </div>
       <div style="display:flex;gap:8px;justify-content:flex-end">
         <button class="btn" onclick="toggleVocabScheduleEdit('${s.id}')">취소</button>
@@ -4831,15 +5157,47 @@ function showVocabDetail(studentId) {
     </div>`:''}
     <div class="card">
       <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:10px">📝 최근 시험 기록</div>
-      ${recentTests.length?recentTests.map(t=>{
-        const sc = scoreOf(t);
-        return `<div class="trend-row" style="font-size:12px">
-          <span style="color:var(--text3)">${t.date}</span>
-          <span class="badge ${t.type==='new'?'badge-green':'badge-gold'}" style="font-size:10px">${t.type==='new'?'새로운':'누적'} ${t.round}차</span>
-          <span>${t.total}단어 / 틀림 ${t.wrong}</span>
-          <span style="font-weight:700;color:${sc>=90?'var(--accent)':sc>=70?'var(--gold)':'var(--accent2)'}">${sc}점</span>
-        </div>`;
-      }).join(''):'<p style="font-size:12px;color:var(--text3)">기록 없음</p>'}
+      ${recentTests.length?(()=>{
+        // 날짜별 그룹핑
+        const byDate = {};
+        recentTests.forEach(t => { (byDate[t.date] = byDate[t.date] || []).push(t); });
+        const dayNames = ['일','월','화','수','목','금','토'];
+        return Object.entries(byDate).map(([date, list]) => {
+          const dow = date ? dayNames[new Date(date).getDay()] : '';
+          const ids = list.map(x=>x.id).join(',');
+          const rows = list.map(t => {
+            const sc = scoreOf(t);
+            if (t.absent) {
+              return `<div class="trend-row" style="font-size:12px">
+                <span class="badge badge-red" style="font-size:10px">결석</span>
+                <span style="color:var(--text2);flex:1">${t.absReason||'-'}</span>
+                <button class="btn btn-sm" onclick="deleteVocabTest('${t.id}','${s.id}')" style="font-size:10px;padding:2px 8px;color:var(--accent2);border-color:var(--accent2)">삭제</button>
+              </div>`;
+            }
+            return `<div class="trend-row" style="font-size:12px">
+              <span class="badge ${t.type==='new'?'badge-green':'badge-gold'}" style="font-size:10px">${t.type==='new'?'새로운':'누적'} ${t.round}차</span>
+              <span>${t.total}단어 / 틀림 ${t.wrong}</span>
+              <span style="font-weight:700;color:${sc>=90?'var(--accent)':sc>=70?'var(--gold)':'var(--accent2)'}">${sc}점</span>
+              ${t.havruta==='pass'?`<span style="font-size:10px;color:var(--accent);font-weight:600">🗣️ 통과</span>`:''}
+              ${t.havruta==='fail'?`<span style="font-size:10px;color:var(--accent2);font-weight:600">🗣️ ${t.havrutaAttempt||1}차 미통과</span>`:''}
+              <button class="btn btn-sm" onclick="deleteVocabTest('${t.id}','${s.id}')" style="font-size:10px;padding:2px 8px;color:var(--accent2);border-color:var(--accent2)">삭제</button>
+            </div>`;
+          }).join('');
+          // 그날 전체 온라인 소요 시간 합산 (개별 레코드에 붙어있던 값 합)
+          const dayOnlineMin = list.reduce((a,t)=>a+(t.onlineMin||0), 0);
+          const onlineFooter = dayOnlineMin ? `<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);font-size:12px;color:var(--text2)">
+            ⏱ 온라인 총 소요 시간: <b>${dayOnlineMin}분</b>
+          </div>` : '';
+          return `<div style="margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+              <b style="font-size:12px">${date}${dow?` (${dow})`:''}</b>
+              ${list.length>1?`<button class="btn btn-sm" onclick="deleteVocabTestByDate('${ids}','${s.id}')" style="font-size:10px;padding:2px 8px;color:var(--accent2);border-color:var(--accent2);margin-left:auto">이 날짜 전체 삭제</button>`:''}
+            </div>
+            ${rows}
+            ${onlineFooter}
+          </div>`;
+        }).join('');
+      })():'<p style="font-size:12px;color:var(--text3)">기록 없음</p>'}
     </div>
     ${renderVocabStaySection(s)}
   `;
@@ -4966,14 +5324,19 @@ function deleteVocabStay(id) {
 
 function toggleVocabScheduleEdit(sid) {
   const f = document.getElementById('vocab-schedule-edit-'+sid);
-  f.style.display = f.style.display==='none'?'block':'none';
+  const opening = f.style.display==='none';
+  f.style.display = opening?'block':'none';
+  if (opening) {
+    const s = db.students.find(x=>x.id===sid);
+    renderVocabTimeRange('vse-time-'+sid, s?.vocabTime || '');
+  }
 }
 
 function saveVocabSchedule(sid) {
   const s = db.students.find(s=>s.id===sid);
   if (!s) return;
   s.days = Array.from(document.querySelectorAll('#vse-days-'+sid+' .day-btn.on')).map(b=>b.dataset.day);
-  s.vocabTime = document.getElementById('vse-time-'+sid).value;
+  s.vocabTime = getVocabTimeRange('vse-time-'+sid);
   saveDB();
   closeModal('modal-student-detail');
   renderPage();
@@ -5037,10 +5400,26 @@ function renderVocabTestPage() {
   el.innerHTML = summary + history;
 }
 
-function deleteVocabTest(id) {
+function deleteVocabTest(id, studentId) {
   if (!confirm('이 시험 기록을 삭제할까요?')) return;
   db.vocabTests = (db.vocabTests||[]).filter(t=>t.id!==id);
-  saveDB(); renderPage();
+  saveDB();
+  if (studentId) {
+    // 학생 상세 모달이 열려있으면 다시 그리기
+    showVocabDetail(studentId);
+  } else {
+    renderPage();
+  }
+}
+
+function deleteVocabTestByDate(idsCsv, studentId) {
+  const ids = (idsCsv||'').split(',').filter(Boolean);
+  if (!ids.length) return;
+  if (!confirm(`이 날짜의 시험 기록 ${ids.length}개를 모두 삭제할까요?`)) return;
+  const set = new Set(ids);
+  db.vocabTests = (db.vocabTests||[]).filter(t => !set.has(t.id));
+  saveDB();
+  if (studentId) showVocabDetail(studentId); else renderPage();
 }
 
 // ===== WEEKLY/MONTHLY REPORT =====
