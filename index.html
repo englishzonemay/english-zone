@@ -3200,14 +3200,14 @@ function addWrongItem(data) {
   const legacyAns = d.answer || '';
   const legacyStu = d.studentAns || '';
 
+  const initialNum = d.num || '';
   div.innerHTML = `
     <div class="wrong-header">
-      <span class="wrong-num">${d.num || wrongCounter}번 문제</span>
-      <button type="button" class="wrong-del" onclick="this.closest('.wrong-item').remove();updateWrongCount()" title="삭제">×</button>
-    </div>
-    <div class="wrong-field">
-      <label>문제 번호</label>
-      <input class="wq-num" type="text" value="${d.num||wrongCounter}" placeholder="예: 3" style="width:80px" />
+      <span class="wrong-num wq-title" style="font-size:16px;font-weight:700;color:var(--accent2)">${initialNum?initialNum+'번':'번호 미입력'}</span>
+      <div style="display:flex;align-items:center;gap:6px">
+        <input class="wq-num" type="text" value="${initialNum}" placeholder="번호" oninput="updateWrongTitle(this)" style="width:60px;text-align:center;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px" />
+        <button type="button" class="wrong-del" onclick="this.closest('.wrong-item').remove();updateWrongCount()" title="삭제">×</button>
+      </div>
     </div>
     <div class="wrong-field">
       <label>틀린 유형 (복수 선택)</label>
@@ -3220,21 +3220,18 @@ function addWrongItem(data) {
     <div class="wq-type-fields">
       <div class="wq-type-block" data-for="eng" style="display:${types.includes('eng')?'block':'none'};margin-top:8px;padding:8px;background:var(--accent2-light);border-radius:6px;border-left:3px solid var(--accent2)">
         <div style="font-size:11px;font-weight:700;color:var(--accent2);margin-bottom:4px">영어 어순 배열</div>
-        <div class="wrong-field"><label>정답 (/ 로 청크 구분)</label><input class="wq-ans-eng" placeholder="예: I go / to school / every day" value="${det.eng?.answer||legacyAns}" oninput="previewChunks(this)" /></div>
-        <div class="wrong-field"><label>학생 답안</label><input class="wq-stu-eng" placeholder="학생이 작성한 답안" value="${det.eng?.studentAns||legacyStu}" oninput="previewChunks(this)" /></div>
-        <div class="wq-preview" style="min-height:16px;font-size:12px;margin-top:2px"></div>
+        <div class="wrong-field"><label>정답</label><input class="wq-ans-eng" placeholder="정답 입력" value="${det.eng?.answer||legacyAns}" /></div>
+        <div class="wrong-field"><label>학생 답안</label><input class="wq-stu-eng" placeholder="학생이 작성한 답안" value="${det.eng?.studentAns||legacyStu}" /></div>
       </div>
       <div class="wq-type-block" data-for="ord" style="display:${types.includes('ord')?'block':'none'};margin-top:8px;padding:8px;background:var(--gold-light);border-radius:6px;border-left:3px solid var(--gold)">
         <div style="font-size:11px;font-weight:700;color:var(--gold);margin-bottom:4px">순서 배열</div>
-        <div class="wrong-field"><label>정답 (/ 로 청크 구분)</label><input class="wq-ans-ord" placeholder="예: 나는 / 간다 / 학교에 / 매일" value="${det.ord?.answer||''}" oninput="previewChunks(this)" /></div>
-        <div class="wrong-field"><label>학생 답안</label><input class="wq-stu-ord" placeholder="학생이 작성한 답안" value="${det.ord?.studentAns||''}" oninput="previewChunks(this)" /></div>
-        <div class="wq-preview" style="min-height:16px;font-size:12px;margin-top:2px"></div>
+        <div class="wrong-field"><label>정답</label><input class="wq-ans-ord" placeholder="정답 입력" value="${det.ord?.answer||''}" /></div>
+        <div class="wrong-field"><label>학생 답안</label><input class="wq-stu-ord" placeholder="학생이 작성한 답안" value="${det.ord?.studentAns||''}" /></div>
       </div>
       <div class="wq-type-block" data-for="kor" style="display:${types.includes('kor')?'block':'none'};margin-top:8px;padding:8px;background:#EAF1FB;border-radius:6px;border-left:3px solid #185FA5">
         <div style="font-size:11px;font-weight:700;color:#185FA5;margin-bottom:4px">영작하기</div>
-        <div class="wrong-field"><label>정답 (/ 로 청크 구분)</label><input class="wq-ans-kor" placeholder="예: 나는 / 매일 / 학교에 간다" value="${det.kor?.answer||''}" oninput="previewChunks(this)" /></div>
-        <div class="wrong-field"><label>학생 답안</label><input class="wq-stu-kor" placeholder="학생이 작성한 답안" value="${det.kor?.studentAns||''}" oninput="previewChunks(this)" /></div>
-        <div class="wq-preview" style="min-height:16px;font-size:12px;margin-top:2px"></div>
+        <div class="wrong-field"><label>정답</label><input class="wq-ans-kor" placeholder="정답 입력" value="${det.kor?.answer||''}" /></div>
+        <div class="wrong-field"><label>학생 답안</label><input class="wq-stu-kor" placeholder="학생이 작성한 답안" value="${det.kor?.studentAns||''}" /></div>
       </div>
     </div>
   `;
@@ -3242,8 +3239,13 @@ function addWrongItem(data) {
   updateWrongCount();
   document.getElementById('hw-wrong-wrap').style.display = 'block';
   document.getElementById('hw-wrong-toggle').classList.add('open');
-  // 초기 프리뷰
-  div.querySelectorAll('.wq-ans-eng,.wq-ans-ord,.wq-ans-kor').forEach(inp => { if(inp.value) previewChunks(inp); });
+}
+
+function updateWrongTitle(input) {
+  const item = input.closest('.wrong-item');
+  const title = item.querySelector('.wq-title');
+  const v = input.value.trim();
+  title.textContent = v ? v + '번' : '번호 미입력';
 }
 
 function toggleTypeChip(el) {
@@ -3253,21 +3255,6 @@ function toggleTypeChip(el) {
   const item = el.closest('.wrong-item');
   const block = item.querySelector(`.wq-type-block[data-for="${t}"]`);
   if (block) block.style.display = isOn ? 'block' : 'none';
-}
-
-function previewChunks(inp) {
-  const block = inp.closest('.wq-type-block');
-  const ansInput = block.querySelector('[class*="wq-ans-"]');
-  const stuInput = block.querySelector('[class*="wq-stu-"]');
-  const preview = block.querySelector('.wq-preview');
-  const ansChunks = (ansInput?.value||'').split('/').map(s=>s.trim());
-  const stuChunks = (stuInput?.value||'').split('/').map(s=>s.trim());
-  if (!ansInput?.value && !stuInput?.value) { preview.innerHTML=''; return; }
-  const html = stuChunks.map((chunk, i) => {
-    const correct = i < ansChunks.length && chunk.toLowerCase().trim() === ansChunks[i].toLowerCase().trim();
-    return `<span style="color:${correct?'var(--text)':'var(--accent2)'};${correct?'':'font-weight:600;text-decoration:underline'}">${chunk}</span>`;
-  }).join(' <span style="color:var(--text3)">/</span> ');
-  preview.innerHTML = '<span style="font-size:10px;color:var(--text3)">비교: </span>' + html;
 }
 
 function showAIAnalysis(hwId) {
