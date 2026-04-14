@@ -3518,6 +3518,43 @@ function aiSaveBtn(category, student) {
 let vocabSelectedDay = '월';
 let vocabFilterDay = 'all';
 let vocabFilterTime = 'all';
+let vocabCollapsedGroups = new Set();
+let vocabDragStudentId = null;
+
+function toggleVocabGroup(key) {
+  if (vocabCollapsedGroups.has(key)) vocabCollapsedGroups.delete(key);
+  else vocabCollapsedGroups.add(key);
+  renderPage();
+}
+
+// 드래그 핸들러
+function onVocabCardDragStart(e, sid) {
+  vocabDragStudentId = sid;
+  e.dataTransfer.effectAllowed = 'move';
+  e.stopPropagation();
+}
+function onVocabCardDragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect='move'; }
+function onVocabCardDrop(e, targetSid, groupKey) {
+  e.preventDefault();
+  e.stopPropagation();
+  if (!vocabDragStudentId || vocabDragStudentId === targetSid) return;
+  // 같은 그룹 내 학생들을 sortOrder로 재배치
+  const classId = currentClass;
+  const [day, time] = groupKey.split('|');
+  const groupStudents = db.students.filter(s => s.classId===classId && (s.days||[]).includes(day) && (s.vocabTime||'시간 미정')===time);
+  groupStudents.sort((a,b)=>(a.sortOrder??999)-(b.sortOrder??999));
+  const srcIdx = groupStudents.findIndex(s=>s.id===vocabDragStudentId);
+  const tgtIdx = groupStudents.findIndex(s=>s.id===targetSid);
+  if (srcIdx<0 || tgtIdx<0) return;
+  const moved = groupStudents.splice(srcIdx, 1)[0];
+  groupStudents.splice(tgtIdx, 0, moved);
+  groupStudents.forEach((s, i) => { s.sortOrder = i; });
+  vocabDragStudentId = null;
+  saveDB();
+  renderPage();
+}
+
+function sortByOrder(a,b) { return (a.sortOrder??999)-(b.sortOrder??999); }
 
 // 단어시험반 현황 탭
 function renderVocabOverview(cls) {
@@ -3531,11 +3568,16 @@ function renderVocabOverview(cls) {
 
   const avgScore = tests.length?(tests.reduce((a,t)=>a+scoreOf(t),0)/tests.length).toFixed(0):'—';
 
+  // 이번 달 스테이 집계
+  const thisMonth = new Date().toISOString().slice(0,7);
+  const stays = (db.supplements||[]).filter(sp => sp.type==='스테이' && sp.date && sp.date.startsWith(thisMonth) && students.some(s=>s.name===sp.student));
+  const stayTotalMin = stays.reduce((a,sp)=>a+(sp.minutes||0),0);
+
   document.getElementById('overview-metrics').innerHTML = `
     <div class="metric"><div class="metric-val">${students.length}</div><div class="metric-label">담당 학생</div></div>
     <div class="metric"><div class="metric-val">${tests.length}</div><div class="metric-label">시험 기록</div></div>
     <div class="metric"><div class="metric-val">${avgScore}</div><div class="metric-label">평균 점수</div></div>
-    <div class="metric"><div class="metric-val">${tests.filter(t=>scoreOf(t)>=90).length}</div><div class="metric-label">90점 이상</div></div>
+    <div class="metric"><div class="metric-val">${stays.length}회</div><div class="metric-label">이번 달 스테이 (${stayTotalMin}분)</div></div>
   `;
 
   // 평균 추이 그래프
@@ -3560,6 +3602,27 @@ function renderVocabOverview(cls) {
           <div style="font-size:11px;font-weight:700">${d.avg}</div>
         </div>`).join('')}
       </div>
+    </div>`;
+  }
+
+  // 스테이 많은 학생 TOP 5 (이번 달)
+  const stayByStudent = {};
+  stays.forEach(sp => {
+    if (!stayByStudent[sp.student]) stayByStudent[sp.student] = { count:0, minutes:0 };
+    stayByStudent[sp.student].count++;
+    stayByStudent[sp.student].minutes += (sp.minutes||0);
+  });
+  const topStays = Object.entries(stayByStudent).sort((a,b)=>b[1].count-a[1].count).slice(0,5);
+  let stayCard = '';
+  if (topStays.length) {
+    stayCard = `<div class="card" style="margin-bottom:16px;background:#F3E8FF;border:1px solid #d4b8f0">
+      <div style="font-size:11px;font-weight:600;color:#6A1B9A;text-transform:uppercase;margin-bottom:10px">🕐 이번 달 스테이 TOP ${topStays.length}</div>
+      ${topStays.map(([name,d],i)=>`<div class="trend-row" style="font-size:12px;border-color:#d4b8f0">
+        <span style="font-weight:700;color:#6A1B9A">${i+1}위</span>
+        <span style="font-weight:500;flex:1">${name}</span>
+        <span class="badge" style="background:#F3E8FF;color:#6A1B9A;font-size:10px">${d.count}회</span>
+        <span style="font-weight:600;color:#6A1B9A">${d.minutes}분</span>
+      </div>`).join('')}
     </div>`;
   }
 
@@ -3616,13 +3679,16 @@ function renderVocabOverview(cls) {
   };
 
   const groupsHtml = sortedTimes.map(time => {
-    const gs = timeGroups[time];
-    return `<div style="margin-bottom:20px">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--border)">
+    const gs = timeGroups[time].slice().sort(sortByOrder);
+    const groupKey = vocabSelectedDay + '|' + time;
+    const collapsed = vocabCollapsedGroups.has(groupKey);
+    return `<div style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface2);border-radius:6px;cursor:pointer;margin-bottom:${collapsed?'0':'10px'}" onclick="toggleVocabGroup('${groupKey}')">
+        <span style="font-size:11px;color:var(--accent);transition:transform 0.2s;display:inline-block;${collapsed?'':'transform:rotate(90deg)'}">▶</span>
         <span style="font-size:13px;font-weight:700;color:var(--accent)">🕐 ${time}</span>
         <span class="badge badge-gray" style="font-size:10px">${gs.length}명</span>
       </div>
-      <div class="student-cards-grid">${gs.map(buildCard).join('')}</div>
+      ${collapsed?'':`<div class="student-cards-grid">${gs.map(buildCard).join('')}</div>`}
     </div>`;
   }).join('');
 
@@ -3631,6 +3697,7 @@ function renderVocabOverview(cls) {
 
   document.getElementById('overview-classes').innerHTML = `
     ${trendChart}
+    ${stayCard}
     ${dayTabs}
     ${dayStudents.length?groupsHtml:'<div class="empty"><div class="empty-icon">📅</div><p>이 요일에 등록된 학생이 없습니다</p></div>'}
     ${unassigned.length?`<div style="margin-top:16px">
@@ -3683,15 +3750,29 @@ function renderVocabClass(cls, students) {
     timeGroups[t].push(s);
   });
 
-  const sortedTimes = Object.keys(timeGroups).sort();
+  const sortedTimes = Object.keys(timeGroups).sort((a,b) => (parseInt(a)||99)-(parseInt(b)||99));
   let groupsHtml = sortedTimes.map(time => {
-    const gs = timeGroups[time];
+    const gs = timeGroups[time].slice().sort(sortByOrder);
+    const groupKey = vocabSelectedDay + '|' + time;
+    const collapsed = vocabCollapsedGroups.has(groupKey);
+    const now = new Date();
+    const thisMonth = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
     const cards = gs.map(s => {
       const stat = getVocabStats(s.name);
       const score = stat.last ? scoreOf(stat.last) : null;
       const scoreColor = score==null?'var(--text3)':(score>=90?'var(--accent)':score>=70?'var(--gold)':'var(--accent2)');
       const trendIcon = stat.trend==='up'?'<span style="color:var(--accent)">↑</span>':stat.trend==='down'?'<span style="color:var(--accent2)">↓</span>':stat.trend==='same'?'<span style="color:var(--text3)">→</span>':'';
-      return `<div class="student-card" onclick="showVocabDetail('${s.id}')" style="border-left:3px solid ${scoreColor}">
+      // 스테이 통계 (이번 달)
+      const sups = (db.supplements||[]).filter(sp=>sp.student===s.name && sp.type==='스테이' && sp.date && sp.date.startsWith(thisMonth));
+      const stayMins = sups.reduce((a,sp)=>a+(sp.minutes||0),0);
+      return `<div class="student-card"
+        draggable="true"
+        ondragstart="onVocabCardDragStart(event,'${s.id}')"
+        ondragover="onVocabCardDragOver(event)"
+        ondrop="onVocabCardDrop(event,'${s.id}','${groupKey}')"
+        onclick="showVocabDetail('${s.id}')"
+        style="border-left:3px solid ${scoreColor};cursor:pointer">
+        <span style="flex-shrink:0;color:var(--text3);font-size:16px;cursor:grab;user-select:none" title="드래그해서 순서 변경" onmousedown="event.stopPropagation()">⋮⋮</span>
         <div class="avatar" style="background:${cls.color}20;color:${cls.color}">${s.name.slice(0,2)}</div>
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;gap:6px">
@@ -3701,6 +3782,7 @@ function renderVocabClass(cls, students) {
           </div>
           <div style="font-size:10px;color:var(--text2);margin-top:2px">
             새로운 단어 ${stat.newT.length?stat.newT.length+'차':'—'} · 누적 ${stat.cumT.length?stat.cumT.length+'차':'—'}
+            ${sups.length?` · 🕐 스테이 ${sups.length}회(${stayMins}분)`:''}
           </div>
         </div>
         <div style="text-align:right">
@@ -3709,8 +3791,12 @@ function renderVocabClass(cls, students) {
       </div>`;
     }).join('');
     return `<div style="margin-bottom:16px">
-      <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px;text-transform:uppercase">${vocabSelectedDay} ${time} (${gs.length}명)</div>
-      <div class="student-cards-grid">${cards}</div>
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--surface2);border-radius:6px;cursor:pointer;margin-bottom:${collapsed?'0':'8px'}" onclick="toggleVocabGroup('${groupKey}')">
+        <span style="font-size:11px;color:var(--accent);transition:transform 0.2s;display:inline-block;${collapsed?'':'transform:rotate(90deg)'}">▶</span>
+        <span style="font-size:13px;font-weight:700">${vocabSelectedDay} ${time}</span>
+        <span class="badge badge-gray" style="font-size:10px">${gs.length}명</span>
+      </div>
+      ${collapsed?'':`<div class="student-cards-grid">${cards}</div>`}
     </div>`;
   }).join('');
 
@@ -3916,8 +4002,127 @@ function showVocabDetail(studentId) {
         </div>`;
       }).join(''):'<p style="font-size:12px;color:var(--text3)">기록 없음</p>'}
     </div>
+    ${renderVocabStaySection(s)}
   `;
   openModal('modal-student-detail');
+}
+
+// 스테이 기록 섹션 (단어시험반 전용)
+function renderVocabStaySection(s) {
+  if (!db.supplements) db.supplements = [];
+  const sups = db.supplements.filter(sp => sp.student===s.name && sp.type==='스테이').sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const now = new Date();
+  const thisMonth = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  const monthly = sups.filter(sp=>sp.date&&sp.date.startsWith(thisMonth));
+  const totalMins = monthly.reduce((a,sp)=>a+(sp.minutes||0),0);
+  const lastDate = sups[0]?.date || '—';
+  const today = new Date().toISOString().split('T')[0];
+  const recent = sups.slice(0,5);
+
+  return `<div class="coach-section" style="background:#F3E8FF;border:1px solid #d4b8f0;margin-top:12px">
+    <div class="coach-header open" onclick="this.classList.toggle('open');this.nextElementSibling.style.display=this.classList.contains('open')?'block':'none'" style="color:#6A1B9A">
+      <span class="ch-arrow" style="transform:rotate(90deg)">▶</span> 🕐 스테이 기록
+      <span class="badge badge-gray" style="font-size:10px;margin-left:auto">이번 달 ${monthly.length}회 · ${totalMins}분</span>
+    </div>
+    <div class="coach-body" style="background:white">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+        <div style="text-align:center;padding:8px;background:#F3E8FF;border-radius:6px">
+          <div style="font-size:16px;font-weight:700;color:#6A1B9A">${monthly.length}회</div>
+          <div style="font-size:10px;color:var(--text2)">이번 달 스테이</div>
+        </div>
+        <div style="text-align:center;padding:8px;background:var(--gold-light);border-radius:6px">
+          <div style="font-size:16px;font-weight:700;color:var(--gold)">${totalMins}분</div>
+          <div style="font-size:10px;color:var(--text2)">이번 달 총 시간</div>
+        </div>
+        <div style="text-align:center;padding:8px;background:var(--surface2);border-radius:6px">
+          <div style="font-size:13px;font-weight:700;color:var(--text)">${lastDate.slice(5)||'—'}</div>
+          <div style="font-size:10px;color:var(--text2)">최근 스테이</div>
+        </div>
+      </div>
+      <!-- 입력 폼 -->
+      <div style="background:var(--surface2);border-radius:6px;padding:10px;margin-bottom:10px">
+        <div class="field-row" style="margin-bottom:6px">
+          <div class="field" style="margin-bottom:0"><label>날짜</label><input type="date" id="vs-date-${s.id}" value="${today}" /></div>
+          <div class="field" style="margin-bottom:0"><label>시간</label>
+            <div style="display:flex;gap:4px">
+              <button type="button" class="type-chip" data-min="10" onclick="pickStayMin(this,'${s.id}')">10분</button>
+              <button type="button" class="type-chip" data-min="20" onclick="pickStayMin(this,'${s.id}')">20분</button>
+              <button type="button" class="type-chip" data-min="30" onclick="pickStayMin(this,'${s.id}')">30분</button>
+            </div>
+            <input type="hidden" id="vs-min-${s.id}" value="" />
+          </div>
+        </div>
+        <div class="field" style="margin-bottom:6px">
+          <label>미완료 항목</label>
+          <div style="display:flex;gap:4px">
+            <button type="button" class="type-chip" data-inc="새로운단어" onclick="pickStayInc(this,'${s.id}')">새로운단어</button>
+            <button type="button" class="type-chip" data-inc="누적테스트" onclick="pickStayInc(this,'${s.id}')">누적테스트</button>
+            <button type="button" class="type-chip" data-inc="둘다" onclick="pickStayInc(this,'${s.id}')">둘다</button>
+          </div>
+          <input type="hidden" id="vs-inc-${s.id}" value="" />
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+          <label style="font-size:11px;display:flex;align-items:center;gap:4px;cursor:pointer">
+            <input type="checkbox" id="vs-done-${s.id}" /> 완료
+          </label>
+          <input id="vs-memo-${s.id}" placeholder="메모" style="flex:1;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px" />
+        </div>
+        <button class="btn btn-sm btn-primary" onclick="saveVocabStay('${s.id}','${s.name.replace(/'/g,"\\'")}')" style="width:100%">스테이 기록 저장</button>
+      </div>
+      <!-- 최근 기록 -->
+      ${recent.length?recent.map(sp=>`<div class="trend-row" style="font-size:12px">
+        <span style="color:var(--text3)">${sp.date}</span>
+        <span class="badge badge-gray" style="font-size:10px">${sp.minutes||0}분</span>
+        <span class="badge badge-gray" style="font-size:10px">${sp.incomplete||'—'}</span>
+        <span>${sp.done?'✅ 완료':'⬜ 미완료'}</span>
+        <button class="btn btn-sm" onclick="deleteVocabStay('${sp.id}')" style="font-size:10px;padding:2px 6px;color:var(--accent2);border-color:var(--accent2)">삭제</button>
+      </div>`).join(''):'<p style="font-size:12px;color:var(--text3)">기록 없음</p>'}
+    </div>
+  </div>`;
+}
+
+let vsMin = '', vsInc = '';
+function pickStayMin(el, sid) {
+  vsMin = el.dataset.min;
+  el.parentElement.querySelectorAll('.type-chip').forEach(c => c.classList.toggle('on-eng', c.dataset.min===vsMin));
+  document.getElementById('vs-min-'+sid).value = vsMin;
+}
+function pickStayInc(el, sid) {
+  vsInc = el.dataset.inc;
+  el.parentElement.querySelectorAll('.type-chip').forEach(c => c.classList.toggle('on-eng', c.dataset.inc===vsInc));
+  document.getElementById('vs-inc-'+sid).value = vsInc;
+}
+
+function saveVocabStay(sid, sname) {
+  if (!db.supplements) db.supplements = [];
+  const minutes = parseInt(document.getElementById('vs-min-'+sid).value) || 0;
+  const inc = document.getElementById('vs-inc-'+sid).value;
+  const date = document.getElementById('vs-date-'+sid).value;
+  const done = document.getElementById('vs-done-'+sid).checked;
+  const memo = document.getElementById('vs-memo-'+sid).value;
+  if (!minutes) { alert('스테이 시간을 선택하세요'); return; }
+  db.supplements.push({
+    id: 'sup_'+Date.now(),
+    student: sname,
+    date, type: '스테이',
+    minutes, incomplete: inc,
+    done, memo
+  });
+  saveDB();
+  vsMin = ''; vsInc = '';
+  showVocabDetail(sid);
+}
+
+function deleteVocabStay(id) {
+  if (!confirm('이 스테이 기록을 삭제할까요?')) return;
+  db.supplements = (db.supplements||[]).filter(sp=>sp.id!==id);
+  saveDB();
+  // 모달 refresh
+  const sid = db.students.find(s => s.name === (db.supplements.find(sp=>sp.id===id)?.student))?.id;
+  const openedName = document.getElementById('detail-name')?.textContent||'';
+  const studentName = openedName.split(' —')[0];
+  const s = db.students.find(st=>st.name===studentName);
+  if (s) showVocabDetail(s.id); else renderPage();
 }
 
 function toggleVocabScheduleEdit(sid) {
