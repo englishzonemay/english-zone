@@ -2119,7 +2119,7 @@ function renderHomework() {
       <td style="color:var(--text2)">${h.date}</td>
       <td><b style="font-weight:500">${h.student}</b></td>
       <td>${cls?`<span class="badge" style="background:${cls.color}20;color:${cls.color}">${cls.name}</span>`:''}</td>
-      <td><span style="color:${h.stars>=4?'var(--accent)':h.stars>=3?'var(--gold)':'var(--accent2)'}">${'★'.repeat(h.stars)}${'☆'.repeat(5-h.stars)}</span></td>
+      <td><span style="color:${h.stars>=4?'var(--accent)':h.stars>=3?'var(--gold)':'var(--accent2)'}">${'★'.repeat(h.stars)}${'☆'.repeat(5-h.stars)}</span>${h.qualityMemo?`<div style="font-size:10px;color:var(--text2);font-style:italic;margin-top:2px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">"${h.qualityMemo}"</div>`:''}</td>
       <td>${h.read ? `<span class="badge ${Number(h.read)>=20?'badge-green':Number(h.read)>=10?'badge-gold':'badge-red'}">${h.read}회</span>` : '<span style="color:var(--text3)">—</span>'}</td>
       <td>${wrongCount ? `<span class="badge badge-red" style="cursor:pointer" onclick="showWrongDetail('${h.id}')">${wrongCount}문제</span>` : '<span style="color:var(--text3)">—</span>'}</td>
       <td>${h.aiAnalysis ? `<span class="badge badge-blue" style="cursor:pointer;font-size:10px" onclick="showAIAnalysis('${h.id}')">분석보기</span>` : '<span style="color:var(--text3)">—</span>'}</td>
@@ -2555,6 +2555,7 @@ function renderLessonSection(s) {
               <span class="star" onclick="setStar(5)">★</span>
             </div>
           </div>
+          <div class="field" style="margin-bottom:6px"><label>숙제 메모 (선택)</label><input type="text" id="hw-quality-memo" placeholder="예: 수업 중 완성, 집에서 못해옴, 베껴온 흔적" /></div>
           <div class="field" style="margin-bottom:6px"><label>리딩 횟수 (선택)</label><input type="number" id="hw-read" min="0" placeholder="예: 15" style="width:120px" /></div>
           <div style="margin-bottom:8px">
             <button type="button" class="wrong-collapse-btn" id="hw-wrong-toggle" onclick="toggleWrongList()">
@@ -2632,7 +2633,7 @@ function renderLessonSection(s) {
             ${l.mood?`<span class="badge" style="font-size:10px;background:${l.mood==='좋음'?'var(--accent-light)':l.mood==='나쁨'?'var(--accent2-light)':'var(--gold-light)'};color:${l.mood==='좋음'?'var(--accent)':l.mood==='나쁨'?'var(--accent2)':'var(--gold)'}">${l.mood==='좋음'?'😊':l.mood==='나쁨'?'😟':'😐'} ${l.mood}</span>`:''}
             ${l.onlineMin?`<span class="badge badge-gray" style="font-size:10px">온라인 ${l.onlineMin}분</span>`:''}
             ${l.havruta?`<span class="badge ${l.havruta==='완료'?'badge-green':'badge-red'}" style="font-size:10px">하브루타 ${l.havruta}</span>`:''}
-            ${hwLink?`<span style="font-size:11px;color:${hwLink.stars>=4?'var(--accent)':hwLink.stars>=3?'var(--gold)':'var(--accent2)'}">${'★'.repeat(hwLink.stars)}${'☆'.repeat(5-hwLink.stars)}</span>`:''}
+            ${hwLink?`<span style="font-size:11px;color:${hwLink.stars>=4?'var(--accent)':hwLink.stars>=3?'var(--gold)':'var(--accent2)'}">${'★'.repeat(hwLink.stars)}${'☆'.repeat(5-hwLink.stars)}</span>${hwLink.qualityMemo?`<span style="font-size:10px;color:var(--text2);font-style:italic">"${hwLink.qualityMemo}"</span>`:''}`:''}
             ${wrongCount?`<span class="badge badge-red" style="font-size:10px;cursor:pointer" onclick="event.stopPropagation();showWrongDetail('${l.hwId}')">오답 ${wrongCount}</span>`:''}
           </div>
           <div style="display:flex;gap:4px">
@@ -2678,6 +2679,7 @@ function resetLessonForm(sid) {
   document.getElementById('hw-ai-analysis').removeAttribute('data-analysis');
   document.getElementById('hw-ai-analysis').removeAttribute('data-open-mode');
   document.getElementById('hw-read').value = '';
+  const qm = document.getElementById('hw-quality-memo'); if (qm) qm.value = '';
   wrongCounter = 0;
 }
 
@@ -2747,7 +2749,8 @@ function saveLesson(sid) {
     aiAnalysis = aiEl?.dataset?.analysis || '';
     readVal = document.getElementById('hw-read').value;
     memo = document.getElementById('ll-note-'+sid).value;
-    hasHW = (hwStar !== 3 || wrongs.length || readVal);
+    var qualityMemo = document.getElementById('hw-quality-memo')?.value || '';
+    hasHW = (hwStar !== 3 || wrongs.length || readVal || qualityMemo);
     const warnCheat = document.getElementById('ll-warn-cheat-'+sid)?.checked || false;
     const warnType = document.getElementById('ll-wt-'+sid)?.value || '';
     const warnMemo = document.getElementById('ll-warn-memo-'+sid)?.value || '';
@@ -2759,6 +2762,7 @@ function saveLesson(sid) {
       mood: document.getElementById('ll-mood-'+sid).value,
       hard: document.getElementById('ll-hard-'+sid).value,
       memo, stars: hwStar, wrongs,
+      qualityMemo,
       warnCheat, warnType, warnMemo
     };
   }
@@ -2767,7 +2771,8 @@ function saveLesson(sid) {
     id: h?.id || ('hw_'+Date.now()),
     date, student: s.name,
     stars: hwStar, read: readVal||'',
-    wrongs, aiAnalysis, memo
+    wrongs, aiAnalysis, memo,
+    qualityMemo: typeof qualityMemo!=='undefined'?qualityMemo:''
   });
 
   if (editLid) {
@@ -2886,6 +2891,7 @@ function editLesson(lid, sid) {
   if (linkedHw) {
     setStar(linkedHw.stars || 3);
     document.getElementById('hw-read').value = linkedHw.read || '';
+    const qmEl = document.getElementById('hw-quality-memo'); if (qmEl) qmEl.value = linkedHw.qualityMemo || '';
     if (linkedHw.wrongs && linkedHw.wrongs.length) {
       document.getElementById('hw-wrong-list').innerHTML = '';
       wrongCounter = 0;
