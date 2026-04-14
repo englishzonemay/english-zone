@@ -3551,38 +3551,134 @@ function analyzeChunkDiff(answer, student) {
   return diffs;
 }
 
-// 차이점에서 구체적 오류 패턴 감지
+// 차이점에서 구체적 문법 오류 분류 (카테고리 + 디테일)
 function detectErrorPatterns(diffs) {
   const patterns = [];
   diffs.forEach(d => {
-    const c = d.correct.toLowerCase(), w = d.wrong.toLowerCase();
+    const c = d.correct, w = d.wrong;
+    if (!c || !w || c==='(없음)' || w==='(없음)') {
+      if (c && c!=='(없음)' && (!w || w==='(없음)')) patterns.push({cat:'단어 누락', detail:`"${c}" 부분 누락`, word:c});
+      if (w && w!=='(없음)' && (!c || c==='(없음)')) patterns.push({cat:'불필요한 단어 추가', detail:`"${w}" 추가됨`, word:w});
+      return;
+    }
+    const cl = c.toLowerCase(), wl = w.toLowerCase();
+
+    // 대소문자
+    if (cl === wl && c !== w) {
+      patterns.push({cat:'대소문자 오류', detail:`"${w}" → "${c}"`, word:c});
+      return;
+    }
+
+    // 구두점 (마침표/물음표/느낌표/쉼표)
+    const punct = /[.?!,]/;
+    const cPunct = (c.match(/[.?!,]/g)||[]).join('');
+    const wPunct = (w.match(/[.?!,]/g)||[]).join('');
+    if (cPunct !== wPunct) {
+      if (cPunct && !wPunct) patterns.push({cat:'구두점 누락', detail:`"${cPunct}" 빠짐`, word:c});
+      else if (!cPunct && wPunct) patterns.push({cat:'불필요한 구두점', detail:`"${wPunct}" 추가됨`, word:w});
+      else patterns.push({cat:'구두점 오류', detail:`"${wPunct}" → "${cPunct}"`, word:c});
+    }
+
     // 전치사 오류
-    const preps = ['in','on','at','to','for','with','from','of','by','about','into','onto'];
-    const cPreps = preps.filter(p=>c.includes(p));
-    const wPreps = preps.filter(p=>w.includes(p));
-    if (cPreps.length && wPreps.length && cPreps[0]!==wPreps[0]) patterns.push(`전치사 혼동: "${wPreps[0]}" → "${cPreps[0]}"`);
+    const preps = ['in','on','at','to','for','with','from','of','by','about','into','onto','under','over','between','against','through','after','before','during'];
+    const cWords = cl.replace(/[.?!,]/g,'').split(/\s+/).filter(Boolean);
+    const wWords = wl.replace(/[.?!,]/g,'').split(/\s+/).filter(Boolean);
+    const cPreps = cWords.filter(x => preps.includes(x));
+    const wPreps = wWords.filter(x => preps.includes(x));
+    if (cPreps.length && wPreps.length) {
+      const cSet = new Set(cPreps), wSet = new Set(wPreps);
+      const missing = cPreps.filter(p=>!wSet.has(p));
+      const extra = wPreps.filter(p=>!cSet.has(p));
+      if (missing.length && extra.length) patterns.push({cat:'전치사 오용', detail:`"${extra.join(',')}" → "${missing.join(',')}"`, word:missing[0]});
+      else if (missing.length) patterns.push({cat:'전치사 누락', detail:`"${missing.join(', ')}" 빠짐`, word:missing[0]});
+      else if (extra.length) patterns.push({cat:'불필요한 전치사', detail:`"${extra.join(',')}" 추가됨`, word:extra[0]});
+    } else if (cPreps.length && !wPreps.length) {
+      patterns.push({cat:'전치사 누락', detail:`"${cPreps.join(', ')}" 빠짐`, word:cPreps[0]});
+    }
+
+    // 관사 (a/an/the)
+    const arts = ['a','an','the'];
+    const cArts = cWords.filter(x => arts.includes(x));
+    const wArts = wWords.filter(x => arts.includes(x));
+    if (cArts.length !== wArts.length) {
+      if (cArts.length > wArts.length) patterns.push({cat:'관사 누락', detail:`"${cArts.filter(a=>!wArts.includes(a)).join(', ')}" 빠짐`, word:c});
+      else patterns.push({cat:'불필요한 관사', detail:`"${wArts.filter(a=>!cArts.includes(a)).join(', ')}" 추가됨`, word:w});
+    } else if (cArts.length && cArts.join(',') !== wArts.join(',')) {
+      patterns.push({cat:'관사 오용', detail:`"${wArts.join(',')}" → "${cArts.join(',')}"`, word:c});
+    }
+
     // 대명사 격 오류
     const pronounMap = {i:'me',he:'him',she:'her',we:'us',they:'them',me:'i',him:'he',her:'she',us:'we',them:'they'};
-    const cWords = c.split(/\s+/), wWords = w.split(/\s+/);
-    wWords.forEach((ww,j) => { if (pronounMap[ww] && cWords[j] && cWords[j].toLowerCase()===pronounMap[ww]) patterns.push(`대명사 격 혼동: "${ww}" → "${cWords[j]}"`); });
-    // 어순 뒤집힘
-    if (cWords.length>=2 && wWords.length>=2) {
-      const cJoin = cWords.join(' '), wJoin = wWords.reverse().join(' ');
-      if (cJoin === wJoin) patterns.push('어순 뒤바뀜');
+    wWords.forEach((ww,j) => {
+      if (pronounMap[ww] && cWords[j] && cWords[j]===pronounMap[ww]) {
+        patterns.push({cat:'대명사 격 혼동', detail:`"${ww}" → "${cWords[j]}"`, word:cWords[j]});
+      }
+    });
+
+    // 동사 시제 (-ed)
+    cWords.forEach((cw,j) => {
+      const ww = wWords[j];
+      if (!ww) return;
+      if (cw.endsWith('ed') && (cw.slice(0,-2)===ww || cw.slice(0,-1)===ww)) {
+        patterns.push({cat:'동사 시제 오류 (과거형)', detail:`"${ww}" → "${cw}"`, word:cw});
+      }
+      // 3인칭 단수 -s
+      if (cw.endsWith('s') && !cw.endsWith('ss') && cw.slice(0,-1)===ww) {
+        patterns.push({cat:'주어-동사 수 일치 (3인칭 -s)', detail:`"${ww}" → "${cw}"`, word:cw});
+      }
+      // 진행형 -ing
+      if (cw.endsWith('ing') && (cw.slice(0,-3)===ww||cw.slice(0,-4)===ww)) {
+        patterns.push({cat:'진행형 (-ing) 누락', detail:`"${ww}" → "${cw}"`, word:cw});
+      }
+    });
+
+    // 어순 (한국어식)
+    if (cWords.length>=3 && wWords.length>=3) {
+      // 단어들이 동일하지만 순서만 다른 경우
+      const cSorted = [...cWords].sort().join(' ');
+      const wSorted = [...wWords].sort().join(' ');
+      if (cSorted === wSorted && cWords.join(' ') !== wWords.join(' ')) {
+        // 부사 위치 체크
+        const advs = ['always','often','sometimes','never','usually','already','yet','still','just','really','very'];
+        const cAdv = cWords.find(x => advs.includes(x));
+        if (cAdv) {
+          const ci = cWords.indexOf(cAdv), wi = wWords.indexOf(cAdv);
+          if (ci !== wi) patterns.push({cat:'부사 위치 오류', detail:`"${cAdv}"의 위치 잘못`, word:cAdv});
+          else patterns.push({cat:'어순 오류 (한국어식 배열)', detail:`단어는 같으나 순서 다름`, word:c});
+        } else {
+          patterns.push({cat:'어순 오류 (한국어식 배열)', detail:`단어는 같으나 순서 다름`, word:c});
+        }
+      }
     }
-    // 시제 오류
-    if ((c.includes('ed ')&&!w.includes('ed '))||(c.includes('ed')&&w.endsWith(c.replace(/ed$/,'')))) patterns.push('과거 시제 누락');
-    if (c.includes('s ')&&!w.includes('s ')&&cWords.some((cw,j)=>wWords[j]&&cw===wWords[j]+'s')) patterns.push('3인칭 단수 -s 누락');
+
     // 단어 누락/추가
-    if (cWords.length > wWords.length+1) patterns.push(`단어 누락 (${cWords.length-wWords.length}개)`);
-    if (wWords.length > cWords.length+1) patterns.push(`불필요한 단어 추가`);
-    // 철자
-    if (c.length>2 && w.length>2 && Math.abs(c.length-w.length)<=2) {
-      let diff=0; for(let k=0;k<Math.min(c.length,w.length);k++) if(c[k]!==w[k]) diff++;
-      if (diff<=2 && diff>0) patterns.push(`철자 오류: "${d.wrong}" → "${d.correct}"`);
+    if (cWords.length > wWords.length) {
+      const missing = cWords.filter(x => !wWords.includes(x));
+      if (missing.length) patterns.push({cat:'단어 누락', detail:`"${missing.slice(0,3).join(', ')}" 빠짐`, word:missing[0]});
     }
+    if (wWords.length > cWords.length) {
+      const extra = wWords.filter(x => !cWords.includes(x));
+      if (extra.length) patterns.push({cat:'불필요한 단어 추가', detail:`"${extra.slice(0,3).join(', ')}" 추가됨`, word:extra[0]});
+    }
+
+    // 철자 (1~2글자 차이)
+    cWords.forEach((cw,j) => {
+      const ww = wWords[j];
+      if (!ww || cw===ww) return;
+      if (cw.length>2 && ww.length>2 && Math.abs(cw.length-ww.length)<=2) {
+        let diff=0; for(let k=0;k<Math.min(cw.length,ww.length);k++) if(cw[k]!==ww[k]) diff++;
+        diff += Math.abs(cw.length-ww.length);
+        if (diff>0 && diff<=2) patterns.push({cat:'스펠링 오류', detail:`"${ww}" → "${cw}"`, word:cw});
+      }
+    });
   });
-  return [...new Set(patterns)];
+  // dedup by cat+detail
+  const seen = new Set();
+  return patterns.filter(p => {
+    const k = p.cat+'|'+p.detail;
+    if (seen.has(k)) return false;
+    seen.add(k); return true;
+  });
 }
 
 function buildCurrentAnalysis(wrongs, name) {
@@ -3608,6 +3704,20 @@ function buildCurrentAnalysis(wrongs, name) {
   const allPatterns = [];
   const allDiffs = [];
 
+  // 과거 패턴 먼저 계산 (반복 횟수 표시용)
+  const pastPatternCatCounts = {};
+  pastWrongs.forEach(pw => {
+    const det = pw.details||{};
+    (pw.types||[]).forEach(t => {
+      if (det[t]) {
+        const d = analyzeChunkDiff(det[t].answer, det[t].studentAns);
+        detectErrorPatterns(d).forEach(p => {
+          pastPatternCatCounts[p.cat] = (pastPatternCatCounts[p.cat]||0)+1;
+        });
+      }
+    });
+  });
+
   let problems = wrongs.map((w,i) => {
     const det = w.details || {};
     const ts = w.types || [];
@@ -3626,7 +3736,17 @@ function buildCurrentAnalysis(wrongs, name) {
       if (diffs.length) {
         diffDetail = diffs.map(df => `<div style="font-size:11px;margin-left:8px;color:var(--accent2)">· 청크${df.pos}: <s style="color:var(--accent2)">${df.wrong}</s> → <b style="color:var(--accent)">${df.correct}</b></div>`).join('');
       }
-      let patternDetail = patterns.length ? `<div style="font-size:11px;margin-top:3px;padding:3px 8px;background:var(--accent2-light);border-radius:4px">${patterns.map(p=>`<span style="color:var(--accent2)">⚡ ${p}</span>`).join(' ')}</div>` : '';
+      // 상세 오류 리스트 (카테고리 + 디테일 + 반복 횟수)
+      let patternDetail = '';
+      if (patterns.length) {
+        patternDetail = `<div style="margin-top:4px;padding:6px 8px;background:var(--accent2-light);border-radius:4px">`
+          + patterns.map(p => {
+            const pastCnt = pastPatternCatCounts[p.cat]||0;
+            const repeatBadge = pastCnt>0 ? `<span style="background:var(--accent2);color:white;font-size:9px;padding:1px 6px;border-radius:8px;margin-left:4px">이전 ${pastCnt}회</span>` : '';
+            return `<div style="font-size:11px;color:var(--accent2);margin-bottom:2px">⚡ <b>${p.cat}</b> — ${p.detail} ${repeatBadge}</div>`;
+          }).join('')
+          + `</div>`;
+      }
 
       return `<div style="margin-top:4px;padding:6px 8px;background:${getTypeBg(t)};border-radius:4px;border-left:2px solid ${getTypeColor(t)}">
         <div style="font-size:10px;font-weight:600;color:${getTypeColor(t)};margin-bottom:2px">${getTypeLabel(t)}</div>
@@ -3644,39 +3764,86 @@ function buildCurrentAnalysis(wrongs, name) {
     </div>`;
   }).join('');
 
-  // 패턴 빈도 정리
-  const patternCounts = {};
-  allPatterns.forEach(p => patternCounts[p] = (patternCounts[p]||0)+1);
-  const sortedPatterns = Object.entries(patternCounts).sort((a,b)=>b[1]-a[1]);
+  // 카테고리별 빈도
+  const catCounts = {};
+  allPatterns.forEach(p => catCounts[p.cat] = (catCounts[p.cat]||0)+1);
+  const sortedCats = Object.entries(catCounts).sort((a,b)=>b[1]-a[1]);
 
-  let patternSummary = sortedPatterns.length ? sortedPatterns.map(([p,c]) => {
-    const isRepeat = pastWrongs.length > 0;
-    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 8px;background:var(--surface);border-radius:4px;margin-bottom:3px;font-size:12px">
-      <span>⚡ ${p}</span>
-      <span class="badge badge-red" style="font-size:10px">${c}회</span>
+  // 카테고리별 상세 리스트
+  const detailsByCategoryMap = {};
+  allPatterns.forEach(p => {
+    if (!detailsByCategoryMap[p.cat]) detailsByCategoryMap[p.cat] = [];
+    detailsByCategoryMap[p.cat].push(p.detail);
+  });
+
+  // 문법 오류 분류 섹션
+  let grammarSection = sortedCats.length ? sortedCats.map(([cat,cnt]) => {
+    const pastCnt = pastPatternCatCounts[cat]||0;
+    const details = [...new Set(detailsByCategoryMap[cat])];
+    return `<div style="padding:8px 10px;background:var(--surface);border-radius:6px;margin-bottom:6px;border-left:3px solid var(--accent2)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <b style="font-size:12px;color:var(--accent2)">⚡ ${cat}</b>
+        <div style="display:flex;gap:4px">
+          <span class="badge badge-red" style="font-size:10px">이번 ${cnt}회</span>
+          ${pastCnt>0?`<span class="badge badge-gray" style="font-size:10px">이전 ${pastCnt}회</span>`:''}
+        </div>
+      </div>
+      ${details.map(d=>`<div style="font-size:11px;color:var(--text2);margin-left:8px">· ${d}</div>`).join('')}
     </div>`;
-  }).join('') : '<div style="font-size:12px;color:var(--text3)">구체적 패턴 감지를 위해 정답/학생답안을 / 로 구분해서 입력해주세요</div>';
+  }).join('') : '<div style="font-size:12px;color:var(--text3)">패턴 감지를 위해 정답과 학생 답안을 모두 입력해주세요</div>';
 
-  // 누적 비교
-  let cumulativeNote = '';
+  // 취약점 TOP 3
+  const top3 = sortedCats.slice(0,3);
+  let top3Html = top3.length ? `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+    ${top3.map(([cat,cnt],i) => `<div style="text-align:center;padding:10px;background:var(--accent2-light);border-radius:6px;border:1px solid var(--accent2);position:relative">
+      <div style="position:absolute;top:-8px;left:8px;background:var(--accent2);color:white;font-size:10px;padding:2px 6px;border-radius:8px;font-weight:700">#${i+1}</div>
+      <div style="font-size:11px;font-weight:700;color:var(--accent2);margin-top:4px">${cat}</div>
+      <div style="font-size:18px;font-weight:700;color:var(--accent2);margin-top:4px">${cnt}회</div>
+      ${pastPatternCatCounts[cat]?`<div style="font-size:10px;color:var(--text3)">누적 ${cnt+pastPatternCatCounts[cat]}회</div>`:''}
+    </div>`).join('')}
+  </div>` : '';
+
+  // 최근 나아진 부분 / 반복되는 부분
+  let improvedHtml = '', repeatHtml = '';
   if (pastWrongs.length) {
-    const pastPatterns = [];
-    pastWrongs.forEach(pw => {
-      const det = pw.details||{};
-      (pw.types||[]).forEach(t => {
-        if (det[t]) {
-          const d = analyzeChunkDiff(det[t].answer, det[t].studentAns);
-          pastPatterns.push(...detectErrorPatterns(d));
-        }
-      });
-    });
-    const repeating = sortedPatterns.filter(([p])=>pastPatterns.includes(p));
-    const newOnes = sortedPatterns.filter(([p])=>!pastPatterns.includes(p));
-    if (repeating.length) cumulativeNote += `<div style="padding:6px 8px;background:var(--accent2-light);border-radius:4px;margin-bottom:4px;font-size:11px;border-left:3px solid var(--accent2)"><b>반복 실수:</b> ${repeating.map(([p,c])=>p).join(', ')} — 이전에도 같은 실수를 했습니다</div>`;
-    if (newOnes.length) cumulativeNote += `<div style="padding:6px 8px;background:var(--gold-light);border-radius:4px;margin-bottom:4px;font-size:11px;border-left:3px solid var(--gold)"><b>새로운 실수:</b> ${newOnes.map(([p])=>p).join(', ')}</div>`;
+    const pastCats = Object.keys(pastPatternCatCounts);
+    const curCats = Object.keys(catCounts);
+    const improved = pastCats.filter(c => !curCats.includes(c));
+    const repeating = curCats.filter(c => pastCats.includes(c));
+    if (improved.length) improvedHtml = `<div style="padding:8px 10px;background:var(--accent-light);border-radius:6px;border-left:3px solid var(--accent);font-size:12px"><b style="color:var(--accent)">✓ 최근 나아진 부분:</b><br>${improved.map(c => `<span style="display:inline-block;margin:2px;padding:2px 8px;background:var(--surface);border-radius:4px;font-size:11px">${c}</span>`).join(' ')}</div>`;
+    if (repeating.length) repeatHtml = `<div style="padding:8px 10px;background:var(--accent2-light);border-radius:6px;border-left:3px solid var(--accent2);font-size:12px;margin-top:6px"><b style="color:var(--accent2)">⚠ 여전히 반복되는 부분:</b><br>${repeating.map(c => `<span style="display:inline-block;margin:2px;padding:2px 8px;background:var(--surface);border-radius:4px;font-size:11px">${c} (이전 ${pastPatternCatCounts[c]}회 + 이번 ${catCounts[c]}회)</span>`).join(' ')}</div>`;
   }
 
-  const weakest = areas[0];
+  // LT 선생님 방향 제시
+  const topCat = sortedCats[0]?.[0];
+  const words = allPatterns.map(p=>p.word).filter(Boolean).slice(0,5);
+  const ltGuideMap = {
+    '부사 위치 오류': { check: '부사 위치 확인 (일반동사 앞, be동사 뒤)', focus: '문장 속 부사를 찾아 위치가 맞는지', advice: '"부사는 일반동사 앞에 와야 해"' },
+    '전치사 누락': { check: '핵심 전치사 암기 (at/in/on)', focus: '전치사가 빠진 곳이 있는지', advice: '"장소 앞에는 꼭 전치사가 필요해"' },
+    '전치사 오용': { check: '전치사별 쓰임 (at 지점, in 공간, on 표면)', focus: '전치사가 문맥에 맞는지', advice: '"특정 지점은 at, 안쪽 공간은 in이야"' },
+    '대소문자 오류': { check: '문장 시작 대문자, 고유명사 대문자', focus: '문장 첫 글자와 이름', advice: '"문장은 꼭 대문자로 시작해"' },
+    '구두점 누락': { check: '마침표/물음표 확인', focus: '문장 끝 부호', advice: '"문장 끝에는 마침표를 꼭 찍자"' },
+    '동사 시제 오류 (과거형)': { check: '동사 과거형 변환', focus: '과거 시제 표현', advice: '"어제/지난주가 나오면 과거형 -ed"' },
+    '주어-동사 수 일치 (3인칭 -s)': { check: '3인칭 단수 주어 체크 (he/she/it + 동사s)', focus: '주어가 3인칭 단수인지', advice: '"he/she/it 뒤의 동사에는 s를 붙여"' },
+    '관사 누락': { check: '가산명사 앞 관사 필요 여부', focus: '관사 없는 명사', advice: '"셀 수 있는 명사 앞에는 a/an/the"' },
+    '관사 오용': { check: 'a/an/the 구분', focus: '관사 선택', advice: '"특정한 것은 the, 처음 언급은 a/an"' },
+    '스펠링 오류': { check: '틀린 단어 받아쓰기', focus: '단어 철자', advice: '"정확한 철자를 머릿속으로 그려봐"' },
+    '어순 오류 (한국어식 배열)': { check: '영어 어순 (주어-동사-목적어)', focus: '문장 구조', advice: '"영어는 누가-한다-무엇을 순서야"' },
+    '단어 누락': { check: '문장 필수 요소 확인', focus: '빠진 단어', advice: '"정답을 끝까지 읽어보고 빠진 게 없는지 체크"' },
+    '진행형 (-ing) 누락': { check: '진행 시제 표현 (be + -ing)', focus: '-ing 형태', advice: '"지금 하는 일은 be동사 + -ing"' }
+  };
+  const lg = ltGuideMap[topCat] || null;
+
+  let ltGuide = '';
+  if (lg) {
+    ltGuide = `<div style="padding:10px 12px;background:#EAF1FB;border-radius:6px;border-left:3px solid #185FA5">
+      <div style="font-size:12px;margin-bottom:6px"><b style="color:#185FA5">📣 다음 온라인 전 구두 확인:</b> ${lg.check}</div>
+      <div style="font-size:12px;margin-bottom:6px"><b style="color:#185FA5">📖 읽기 할 때 체크 포인트:</b> ${lg.focus}</div>
+      <div style="font-size:12px"><b style="color:#185FA5">💬 학생에게 해줄 한 마디:</b> ${lg.advice}</div>
+      ${words.length?`<div style="font-size:11px;color:var(--text2);margin-top:6px;padding-top:6px;border-top:1px dashed var(--border)">연습할 표현: ${[...new Set(words)].map(w=>`<span style="display:inline-block;padding:2px 8px;margin:2px;background:var(--surface);border-radius:4px;font-weight:500">${w}</span>`).join('')}</div>`:''}
+    </div>`;
+  }
+
   return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid var(--accent2)">
       <span style="font-size:16px">📊</span>
@@ -3684,11 +3851,13 @@ function buildCurrentAnalysis(wrongs, name) {
       <span class="badge badge-red">${total}문제</span>
     </div>
     ${chart}
-    <div style="margin:12px 0 6px;font-weight:700;color:var(--accent);font-size:13px;border-bottom:1px solid var(--border);padding-bottom:4px">📝 문제별 정답/학생답안 비교 분석</div>
+    <div style="margin:12px 0 6px;font-weight:700;color:var(--accent);font-size:13px;border-bottom:1px solid var(--border);padding-bottom:4px">📝 문제별 정답/학생답안 비교</div>
     ${problems}
-    <div style="margin:12px 0 6px;font-weight:700;color:var(--accent2);font-size:13px;border-bottom:1px solid var(--border);padding-bottom:4px">⚡ 감지된 오류 패턴</div>
-    ${patternSummary}
-    ${cumulativeNote?`<div style="margin:10px 0 6px;font-weight:700;color:var(--gold);font-size:13px;border-bottom:1px solid var(--border);padding-bottom:4px">📈 이전 기록과 비교</div>${cumulativeNote}`:''}
+    <div style="margin:14px 0 6px;font-weight:700;color:var(--accent2);font-size:13px;border-bottom:1px solid var(--border);padding-bottom:4px">🔍 문법 오류 분류</div>
+    ${grammarSection}
+    ${top3.length?`<div style="margin:14px 0 6px;font-weight:700;color:var(--accent2);font-size:13px;border-bottom:1px solid var(--border);padding-bottom:4px">🏆 가장 자주 틀리는 문법 TOP 3</div>${top3Html}`:''}
+    ${improvedHtml||repeatHtml?`<div style="margin:14px 0 6px;font-weight:700;color:var(--gold);font-size:13px;border-bottom:1px solid var(--border);padding-bottom:4px">📈 이전 기록과 비교</div>${improvedHtml}${repeatHtml}`:''}
+    ${ltGuide?`<div style="margin:14px 0 6px;font-weight:700;color:#185FA5;font-size:13px;border-bottom:1px solid var(--border);padding-bottom:4px">🎯 LT 선생님 방향 제시</div>${ltGuide}`:''}
   </div>`;
 }
 
@@ -3793,7 +3962,7 @@ function buildCumulativeAnalysis(allWrongs, pastHW, currentWrongs, name) {
           if (det[t]) { cumPatterns.push(...detectErrorPatterns(analyzeChunkDiff(det[t].answer, det[t].studentAns))); }
         });
       });
-      const pc = {}; cumPatterns.forEach(p=>pc[p]=(pc[p]||0)+1);
+      const pc = {}; cumPatterns.forEach(p=>{ const k = p.cat||p; pc[k]=(pc[k]||0)+1; });
       const sorted = Object.entries(pc).sort((a,b)=>b[1]-a[1]).slice(0,6);
       if (!sorted.length) return '';
       return `<div style="margin-bottom:10px">
