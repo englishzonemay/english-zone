@@ -1525,7 +1525,9 @@ function renderOverview() {
     currentClass === 'all' ? `전체 ${db.classes.length}개 반` :
     (db.classes.find(c=>c.id===currentClass)||{}).name + '반';
 
-  renderChecklist();
+  // 체크리스트: 전체 현황에서만 표시
+  if (currentClass === 'all') renderChecklist();
+  else document.getElementById('overview-checklist').innerHTML = '';
 
   document.getElementById('overview-metrics').innerHTML = `
     <div class="metric"><div class="metric-val">${students.length}</div><div class="metric-label">담당 학생</div></div>
