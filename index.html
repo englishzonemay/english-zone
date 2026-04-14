@@ -3967,13 +3967,15 @@ function buildCurrentAnalysis(wrongs, name) {
   const pastHW = db.homework.filter(h=>h.student===studentName && h.wrongs && h.wrongs.length);
   const pastWrongs = pastHW.flatMap(h=>h.wrongs);
 
-  // 유형별 요약 (0 제외, 세로 리스트)
+  // 유형별 요약 (0 제외) - 한 줄 리스트
   const typeRows = ['eng','ord','kor'].map(k => ({k, c: tc[k], ...TYPE_STYLE[k]}))
     .filter(r => r.c > 0)
     .sort((a,b) => b.c - a.c);
-  const typeSummary = typeRows.length ? `<div>
-    ${typeRows.map(r => `<div style="padding:12px 0;border-bottom:1px solid var(--border);font-size:13px">${r.label} — ${r.c}문제</div>`).join('')}
-  </div>` : '';
+  const typeSummary = typeRows.length ? typeRows.map(r =>
+    `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;text-align:left">
+      <span>${r.label}</span>
+      <span style="color:var(--text2)">${r.c}문제</span>
+    </div>`).join('') : '';
 
   // 패턴 수집
   const allPatterns = [];
@@ -3995,7 +3997,7 @@ function buildCurrentAnalysis(wrongs, name) {
   const catCounts = {};
   allPatterns.forEach(p => catCounts[p.cat] = (catCounts[p.cat]||0)+1);
 
-  // 문제별 비교 (내부 컨텐츠)
+  // 문제별 비교 카드 (padding 10px 12px, 한 줄에 번호+뱃지)
   const problemsBody = wrongs.map((w,i) => {
     const det = w.details || {};
     const ts = w.types || [];
@@ -4006,44 +4008,42 @@ function buildCurrentAnalysis(wrongs, name) {
       const diffs = analyzeChunkDiff(d.answer, d.studentAns);
       detectErrorPatterns(diffs, t).forEach(p => itemCats.add(p.cat));
       const hl = highlightChunks(d.answer||'', d.studentAns||'');
-      return `<div style="margin-top:2px;padding:3px 6px;background:${getTypeBg(t)};border-radius:4px;border-left:2px solid ${getTypeColor(t)}">
-        <div style="font-size:10px;font-weight:600;color:${getTypeColor(t)};margin-bottom:1px">${getTypeLabel(t)}</div>
-        ${d.answer?`<div style="font-size:12px"><span style="font-size:10px;color:var(--accent);font-weight:600">정답</span> ${hl.ansHtml}</div>`:''}
-        ${d.studentAns?`<div style="font-size:12px"><span style="font-size:10px;color:var(--accent2);font-weight:600">학생</span> ${hl.stuHtml}</div>`:''}
+      return `<div style="margin-top:4px;padding-left:8px;border-left:2px solid ${getTypeColor(t)}">
+        <div style="font-size:10px;font-weight:600;color:${getTypeColor(t)}">${getTypeLabel(t)}</div>
+        ${d.answer?`<div style="font-size:12px;line-height:1.4"><span style="font-size:10px;color:var(--accent);font-weight:600">정답</span> ${hl.ansHtml}</div>`:''}
+        ${d.studentAns?`<div style="font-size:12px;line-height:1.4"><span style="font-size:10px;color:var(--accent2);font-weight:600">학생</span> ${hl.stuHtml}</div>`:''}
       </div>`;
     }).join('');
     const tags = [...itemCats];
     const tagsHtml = tags.length ? `<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:6px">
       ${tags.map(c => `<span style="font-size:9px;padding:2px 7px;border-radius:10px;background:${(CAT_COLOR[c]||'#999')}20;color:${CAT_COLOR[c]||'var(--text2)'};font-weight:600">🏷 ${c}</span>`).join('')}
     </div>` : '';
-    return `<div style="padding:4px 6px;background:var(--surface2);border-radius:6px;margin-bottom:4px;border-left:3px solid var(--accent2)">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
+    return `<div style="padding:10px 12px;border-bottom:1px solid var(--border);text-align:left">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
         <b style="font-size:12px;color:var(--accent2)">${w.num||i+1}번</b>
-        <div style="display:flex;gap:3px">${typeLabels}</div>
+        ${typeLabels}
       </div>
       ${typeAnalysis}
       ${tagsHtml}
     </div>`;
   }).join('');
 
-  // 핵심 약점 TOP 3 (이번+누적)
+  // 핵심 약점 TOP 3 - 한 줄 리스트 (카드 없음)
   const combined = {};
   Object.keys(catCounts).forEach(c => combined[c] = (combined[c]||0)+catCounts[c]);
   Object.keys(pastPatternCatCounts).forEach(c => combined[c] = (combined[c]||0)+pastPatternCatCounts[c]);
   const top3 = Object.entries(combined).sort((a,b)=>b[1]-a[1]).slice(0,3);
   const top3Body = top3.length ? top3.map(([cat,cnt],i) => {
     const color = CAT_COLOR[cat] || 'var(--text2)';
-    const rank = ['🥇','🥈','🥉'][i] || '#'+(i+1);
-    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--surface2);border-radius:6px;border-left:3px solid ${color};margin-bottom:3px">
-      <div style="font-size:14px;width:20px;text-align:center;flex-shrink:0">${rank}</div>
-      <div style="flex:1;min-width:0">
-        <div style="display:flex;align-items:center;gap:6px"><b style="font-size:12px;color:${color}">${cat}</b><span style="font-size:10px;padding:1px 6px;border-radius:8px;background:${color}20;color:${color};font-weight:600">${cnt}회</span></div>
-        <div style="font-size:11px;color:var(--text2)">${CAT_REASON[cat]||''}</div>
-      </div>
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;text-align:left">
+      <span style="font-weight:600;color:var(--text3);width:32px;flex-shrink:0">${i+1}위</span>
+      <span style="font-weight:600;color:${color};min-width:90px">${cat}</span>
+      <span style="color:var(--text2);width:40px;flex-shrink:0">${cnt}회</span>
+      <span style="color:var(--text2);flex:1;font-size:12px">${CAT_REASON[cat]||''}</span>
     </div>`;
-  }).join('') : '<div style="font-size:12px;color:var(--text3);padding:4px 0">감지된 패턴 없음</div>';
+  }).join('') : '<div style="font-size:13px;color:var(--text3);padding:10px 0">감지된 패턴 없음</div>';
 
-  // 누적 비교
+  // 누적 비교 - 한 줄 리스트
   const curCatSet = new Set(Object.keys(catCounts));
   const pastCatsSet = new Set(Object.keys(pastPatternCatCounts));
   const improved = [...pastCatsSet].filter(c => !curCatSet.has(c));
@@ -4051,28 +4051,35 @@ function buildCurrentAnalysis(wrongs, name) {
   const brandNew = [...curCatSet].filter(c => !pastCatsSet.has(c));
   let compareBody;
   if (!pastWrongs.length) {
-    compareBody = '<div style="font-size:12px;color:var(--text3);padding:4px 0">첫 기록 — 다음 회차부터 비교 가능</div>';
+    compareBody = '<div style="font-size:13px;color:var(--text3);padding:10px 0">첫 기록 — 다음 회차부터 비교 가능</div>';
   } else {
     const lines = [];
-    improved.forEach(c => lines.push({icon:'✅',color:'var(--accent)',text:`<b>${c}</b> — 이번엔 안 나타남`}));
-    repeating.forEach(c => lines.push({icon:'⚠️',color:'var(--accent2)',text:`<b>${c}</b> — 이전 ${pastPatternCatCounts[c]||0}회 + 이번 ${catCounts[c]||0}회`}));
-    brandNew.forEach(c => lines.push({icon:'🆕',color:'var(--gold)',text:`<b>${c}</b> — 이번에 새로 감지`}));
-    compareBody = lines.length ? lines.map(l => `<div style="display:flex;align-items:center;gap:6px;padding:5px 10px;background:var(--surface2);border-radius:6px;border-left:3px solid ${l.color};font-size:12px;margin-bottom:3px">
+    improved.forEach(c => lines.push({icon:'✅',text:`<b>${c}</b> — 이번엔 안 나타남`}));
+    repeating.forEach(c => lines.push({icon:'⚠️',text:`<b>${c}</b> — 이전 ${pastPatternCatCounts[c]||0}회 + 이번 ${catCounts[c]||0}회`}));
+    brandNew.forEach(c => lines.push({icon:'🆕',text:`<b>${c}</b> — 이번에 새로 감지`}));
+    compareBody = lines.length ? lines.map(l => `<div style="display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;text-align:left">
       <span>${l.icon}</span><span>${l.text}</span>
-    </div>`).join('') : '<div style="font-size:12px;color:var(--text3);padding:4px 0">변화 없음</div>';
+    </div>`).join('') : '<div style="font-size:13px;color:var(--text3);padding:10px 0">변화 없음</div>';
   }
 
-  return `<div style="padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px">
-    <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)">
-      <b style="color:var(--accent2)">이번 회차 분석</b>
-      <span style="font-size:11px;color:var(--text3)">${name}</span>
-      <span class="badge badge-red" style="margin-left:auto;font-size:10px">총 ${total}문제</span>
-    </div>
-    ${typeSummary?analysisSectionHeader('유형별 요약')+typeSummary:''}
-    <div style="margin-top:10px"></div>
-    ${collapsibleSection('prob','📝 문제별 비교 ('+wrongs.length+'문제)', problemsBody, false)}
-    ${collapsibleSection('top','🎯 핵심 약점 TOP 3', top3Body, false)}
-    ${collapsibleSection('cmp','📈 누적 비교', compareBody, false)}
+  // 헤더 (배경 없음)
+  const header = `<div style="display:flex;align-items:center;gap:6px;padding:10px 0;border-bottom:1px solid var(--border);text-align:left">
+    <b style="color:var(--accent2);font-size:14px">이번 회차 분석</b>
+    <span style="font-size:12px;color:var(--text3)">${name}</span>
+    <span class="badge badge-red" style="margin-left:auto;font-size:10px">총 ${total}문제</span>
+  </div>`;
+
+  const section = (title, body) => `<div style="margin-top:14px;text-align:left">
+    <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px">${title}</div>
+    ${body}
+  </div>`;
+
+  return `<div style="background:var(--surface);padding:0 2px;text-align:left">
+    ${header}
+    ${typeSummary?section('유형별 요약', typeSummary):''}
+    ${section('문제별 비교', problemsBody)}
+    ${section('핵심 약점 TOP 3', top3Body)}
+    ${section('누적 비교', compareBody)}
   </div>`;
 }
 
