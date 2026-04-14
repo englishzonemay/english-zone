@@ -3690,29 +3690,6 @@ function analyzeChunkDiff(answer, student) {
 }
 
 // 차이점에서 구체적 문법 오류 분류 (카테고리 + 디테일)
-// 오류 태그 클릭 팝업
-function showErrTagPopup(el, msg, color) {
-  // 기존 팝업 제거
-  document.querySelectorAll('.err-tag-popup').forEach(p => p.remove());
-  const pop = document.createElement('div');
-  pop.className = 'err-tag-popup';
-  pop.innerHTML = msg.replace(/&apos;/g,"'").replace(/&quot;/g,'"');
-  pop.style.cssText = `position:fixed;background:${color||'var(--accent2)'};color:white;padding:8px 12px;border-radius:8px;font-size:11px;font-weight:500;box-shadow:var(--shadow-md);z-index:9999;max-width:280px;line-height:1.5;pointer-events:none`;
-  document.body.appendChild(pop);
-  const r = el.getBoundingClientRect();
-  const pr = pop.getBoundingClientRect();
-  let top = r.bottom + 6, left = r.left;
-  if (left + pr.width > window.innerWidth - 10) left = window.innerWidth - pr.width - 10;
-  if (top + pr.height > window.innerHeight - 10) top = r.top - pr.height - 6;
-  pop.style.top = top + 'px';
-  pop.style.left = Math.max(10, left) + 'px';
-  // 5초 후 자동 제거 + 다른 곳 클릭 시 제거
-  setTimeout(() => { if (pop.parentNode) pop.remove(); }, 5000);
-  setTimeout(() => {
-    document.addEventListener('click', () => pop.remove(), { once: true });
-  }, 100);
-}
-
 function detectErrorPatterns(diffs, qType) {
   // qType: 'eng' (영어 어순 배열) | 'ord' (순서 배열) | 'kor' (영작하기) | undefined
   const patterns = [];
@@ -3966,15 +3943,9 @@ function buildCurrentAnalysis(wrongs, name) {
 
     // 오류 태그 (카드 맨 아래, 작게) - 클릭 시 팝업으로 원인 표시
     // 카테고리별 첫 패턴의 detail+why를 사용
-    const tagDataMap = {};
-    itemPatterns.forEach(p => { if (!tagDataMap[p.cat]) tagDataMap[p.cat] = p; });
-    const uniqueCats = Object.keys(tagDataMap);
-    const tagsHtml = uniqueCats.length ? `<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);position:relative">
-      ${uniqueCats.map(c => {
-        const p = tagDataMap[c];
-        const why = `${p.detail} → ${p.why||'규칙 미숙'}`;
-        return `<span class="err-tag" style="font-size:10px;padding:3px 8px;border-radius:10px;background:${getCatColor(c)}20;color:${getCatColor(c)};font-weight:600;cursor:pointer;user-select:none" onclick="event.stopPropagation();showErrTagPopup(this,'${why.replace(/'/g,"&apos;").replace(/"/g,'&quot;')}','${getCatColor(c)}')">🏷 ${c}</span>`;
-      }).join('')}
+    const uniqueCats = [...new Set(itemPatterns.map(p => p.cat))];
+    const tagsHtml = uniqueCats.length ? `<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)">
+      ${uniqueCats.map(c => `<span style="font-size:10px;padding:3px 8px;border-radius:10px;background:${getCatColor(c)}20;color:${getCatColor(c)};font-weight:600">🏷 ${c}</span>`).join('')}
     </div>` : '';
 
     return `<div style="padding:10px 12px;background:var(--surface);border-radius:6px;margin-bottom:8px;border-left:3px solid var(--accent2);box-shadow:var(--shadow)">
