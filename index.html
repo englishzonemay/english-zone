@@ -927,7 +927,7 @@ body {
       <div class="card">
         <table class="hw-table">
           <thead><tr>
-            <th>날짜</th><th>학생</th><th>반</th><th>퀄리티</th><th>리딩 횟수</th><th>틀린 문제</th><th>AI 분석</th><th>특이사항</th>
+            <th>날짜</th><th>학생</th><th>반</th><th>퀄리티</th><th>리딩 횟수</th><th>틀린 문제</th><th>AI 분석</th><th>특이사항</th><th></th>
           </tr></thead>
           <tbody id="hw-table-body"></tbody>
         </table>
@@ -2028,7 +2028,7 @@ function renderHomework() {
 
   if (!hw.length) {
     document.getElementById('hw-table-body').innerHTML =
-      '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text3)">기록이 없어요. 학생 카드 → 수업 일지에서 입력하세요.</td></tr>';
+      '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text3)">기록이 없어요. 학생 카드 → 수업 일지에서 입력하세요.</td></tr>';
     document.getElementById('hw-weakness-analysis').innerHTML = '';
     return;
   }
@@ -2045,6 +2045,10 @@ function renderHomework() {
       <td>${wrongCount ? `<span class="badge badge-red" style="cursor:pointer" onclick="showWrongDetail('${h.id}')">${wrongCount}문제</span>` : '<span style="color:var(--text3)">—</span>'}</td>
       <td>${h.aiAnalysis ? `<span class="badge badge-blue" style="cursor:pointer;font-size:10px" onclick="showAIAnalysis('${h.id}')">분석보기</span>` : '<span style="color:var(--text3)">—</span>'}</td>
       <td style="color:var(--text2);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${h.memo||'—'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-sm" onclick="editHwFromTable('${h.id}')" style="font-size:10px;padding:3px 8px">수정</button>
+        <button class="btn btn-sm" onclick="deleteHwFromTable('${h.id}')" style="font-size:10px;padding:3px 8px;color:var(--accent2);border-color:var(--accent2)">삭제</button>
+      </td>
     </tr>`;
   }).join('');
   renderWeaknessAnalysis(hw);
@@ -2372,6 +2376,8 @@ function renderLessonSection(s) {
       <!-- 입력 폼 (토글) -->
       <button class="btn btn-sm btn-primary" onclick="toggleLessonForm('${s.id}')" style="width:100%;margin-bottom:10px">+ 오늘 수업 기록</button>
       <div id="lesson-form-${s.id}" style="display:none;background:var(--surface2);border-radius:6px;padding:12px;margin-bottom:10px">
+        <input type="hidden" id="ll-edit-lid-${s.id}" value="" />
+        <div id="ll-form-title-${s.id}" style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:8px">📝 새 수업 일지</div>
         <div class="field-row" style="margin-bottom:6px">
           <div class="field" style="margin-bottom:0"><label>날짜</label><input type="date" id="ll-date-${s.id}" value="${today}" /></div>
           <div class="field" style="margin-bottom:0"><label>온라인 소요 시간(분)</label><input type="number" id="ll-online-${s.id}" min="0" placeholder="예: 30" /></div>
@@ -2472,6 +2478,7 @@ function renderLessonSection(s) {
             ${wrongCount?`<span class="badge badge-red" style="font-size:10px;cursor:pointer" onclick="event.stopPropagation();showWrongDetail('${l.hwId}')">오답 ${wrongCount}</span>`:''}
           </div>
           <div style="display:flex;gap:4px">
+            <button class="btn btn-sm" onclick="event.stopPropagation();editLesson('${l.id}','${s.id}')" style="font-size:10px;padding:3px 8px">수정</button>
             <button class="btn btn-sm" onclick="event.stopPropagation();deleteLesson('${l.id}','${s.id}')" style="font-size:10px;padding:3px 8px;color:var(--accent2);border-color:var(--accent2)">삭제</button>
           </div>
         </div>
@@ -2483,21 +2490,38 @@ function renderLessonSection(s) {
   </div>`;
 }
 
+function resetLessonForm(sid) {
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('ll-edit-lid-'+sid).value = '';
+  document.getElementById('ll-form-title-'+sid).textContent = '📝 새 수업 일지';
+  document.getElementById('ll-date-'+sid).value = today;
+  document.getElementById('ll-online-'+sid).value = '';
+  document.getElementById('ll-hv-'+sid).value = '';
+  document.getElementById('ll-mood-'+sid).value = '';
+  document.getElementById('ll-hard-'+sid).value = '';
+  document.getElementById('ll-note-'+sid).value = '';
+  document.querySelectorAll(`#lesson-form-${sid} .type-chip`).forEach(c => c.classList.remove('on-eng'));
+  // 주의 기록
+  const wc = document.getElementById('ll-warn-cheat-'+sid); if (wc) wc.checked = false;
+  const wt = document.getElementById('ll-wt-'+sid); if (wt) wt.value = '';
+  const wm = document.getElementById('ll-warn-memo-'+sid); if (wm) wm.value = '';
+  // 숙제 입력 초기화
+  setStar(3);
+  document.getElementById('hw-wrong-list').innerHTML = '';
+  document.getElementById('hw-wrong-count').textContent = '0';
+  document.getElementById('hw-wrong-wrap').style.display = 'none';
+  document.getElementById('hw-wrong-toggle').classList.remove('open');
+  document.getElementById('hw-ai-analysis').innerHTML = '';
+  document.getElementById('hw-ai-analysis').removeAttribute('data-analysis');
+  document.getElementById('hw-read').value = '';
+  wrongCounter = 0;
+}
+
 function toggleLessonForm(sid) {
   const f = document.getElementById('lesson-form-'+sid);
   const opening = f.style.display==='none';
   f.style.display = opening?'block':'none';
-  if (opening) {
-    // 숙제 입력 초기화
-    setStar(3);
-    document.getElementById('hw-wrong-list').innerHTML = '';
-    document.getElementById('hw-wrong-count').textContent = '0';
-    document.getElementById('hw-wrong-wrap').style.display = 'none';
-    document.getElementById('hw-wrong-toggle').classList.remove('open');
-    document.getElementById('hw-ai-analysis').innerHTML = '';
-    document.getElementById('hw-ai-analysis').removeAttribute('data-analysis');
-    wrongCounter = 0;
-  }
+  if (opening) resetLessonForm(sid);
 }
 
 function toggleLessonWarn(sid) {
@@ -2526,38 +2550,19 @@ function saveLesson(sid) {
   if (!db.homework) db.homework = [];
   const s = db.students.find(s=>s.id===sid);
   if (!s) return;
+  const editLid = document.getElementById('ll-edit-lid-'+sid).value;
   const date = document.getElementById('ll-date-'+sid).value;
   const wrongs = collectWrongs();
   const aiEl = document.getElementById('hw-ai-analysis');
   const aiAnalysis = aiEl?.dataset?.analysis || '';
   const readVal = document.getElementById('hw-read').value;
   const memo = document.getElementById('ll-note-'+sid).value;
-
-  const lessonId = 'les_'+Date.now();
-  const hwId = 'hw_'+(Date.now()+1);
-
-  // 숙제 기록 (별점 또는 오답이 있으면)
-  if (hwStar !== 3 || wrongs.length || readVal) {
-    db.homework.push({
-      id: hwId,
-      lessonId,
-      date,
-      student: s.name,
-      stars: hwStar,
-      read: readVal||'',
-      wrongs,
-      aiAnalysis,
-      memo
-    });
-  }
-
-  // 수업 일지
+  const hasHW = (hwStar !== 3 || wrongs.length || readVal);
   const warnCheat = document.getElementById('ll-warn-cheat-'+sid)?.checked || false;
   const warnType = document.getElementById('ll-wt-'+sid)?.value || '';
   const warnMemo = document.getElementById('ll-warn-memo-'+sid)?.value || '';
-  db.lessons.push({
-    id: lessonId,
-    hwId: (hwStar !== 3 || wrongs.length || readVal) ? hwId : '',
+
+  const lessonData = {
     studentId: sid,
     student: s.name,
     date,
@@ -2568,10 +2573,55 @@ function saveLesson(sid) {
     memo,
     stars: hwStar,
     wrongs,
-    warnCheat,
-    warnType,
-    warnMemo
+    warnCheat, warnType, warnMemo
+  };
+
+  const hwData = (h) => ({
+    id: h?.id || ('hw_'+Date.now()),
+    date, student: s.name,
+    stars: hwStar, read: readVal||'',
+    wrongs, aiAnalysis, memo
   });
+
+  if (editLid) {
+    // 수정 모드
+    const idx = db.lessons.findIndex(l=>l.id===editLid);
+    if (idx === -1) return;
+    const existing = db.lessons[idx];
+    // 기존 연결 숙제
+    let linkedHw = existing.hwId ? db.homework.find(h=>h.id===existing.hwId) : null;
+    if (hasHW) {
+      if (linkedHw) {
+        // update
+        const updated = hwData(linkedHw);
+        updated.lessonId = editLid;
+        Object.assign(linkedHw, updated);
+      } else {
+        // create new hw
+        const newHw = hwData();
+        newHw.lessonId = editLid;
+        db.homework.push(newHw);
+        lessonData.hwId = newHw.id;
+      }
+    } else {
+      // no homework data → remove if existed
+      if (linkedHw) db.homework = db.homework.filter(h=>h.id!==linkedHw.id);
+      lessonData.hwId = '';
+    }
+    if (hasHW && linkedHw) lessonData.hwId = linkedHw.id;
+    db.lessons[idx] = { ...existing, ...lessonData };
+  } else {
+    // 신규
+    const lessonId = 'les_'+Date.now();
+    let linkedHwId = '';
+    if (hasHW) {
+      const newHw = hwData();
+      newHw.lessonId = lessonId;
+      db.homework.push(newHw);
+      linkedHwId = newHw.id;
+    }
+    db.lessons.push({ id: lessonId, hwId: linkedHwId, ...lessonData });
+  }
   saveDB();
   showStudentDetail(sid);
 }
@@ -2588,7 +2638,12 @@ function deleteLesson(lid, sid) {
 function editLesson(lid, sid) {
   const l = db.lessons.find(l=>l.id===lid);
   if (!l) return;
-  toggleLessonForm(sid);
+  const f = document.getElementById('lesson-form-'+sid);
+  if (f.style.display === 'none') f.style.display = 'block';
+  resetLessonForm(sid);
+
+  document.getElementById('ll-edit-lid-'+sid).value = lid;
+  document.getElementById('ll-form-title-'+sid).textContent = '✏️ 수업 일지 수정 (' + (l.date||'') + ')';
   document.getElementById('ll-date-'+sid).value = l.date||'';
   document.getElementById('ll-online-'+sid).value = l.onlineMin||'';
   document.getElementById('ll-hv-'+sid).value = l.havruta||'';
@@ -2596,13 +2651,99 @@ function editLesson(lid, sid) {
   document.getElementById('ll-hard-'+sid).value = l.hard||'';
   document.getElementById('ll-note-'+sid).value = l.memo||'';
   // 칩 강조 복원
-  ['hv','mood'].forEach(f => {
-    const v = l[f==='hv'?'havruta':'mood'];
-    document.querySelectorAll(`#lesson-form-${sid} .type-chip[data-${f}]`).forEach(c => c.classList.toggle('on-eng', c.dataset[f]===v));
-  });
-  // 삭제 후 저장하면 수정이 되도록, 임시로 기존 항목 삭제
-  db.lessons = db.lessons.filter(x=>x.id!==lid);
+  document.querySelectorAll(`#lesson-form-${sid} .type-chip[data-hv]`).forEach(c => c.classList.toggle('on-eng', c.dataset.hv===l.havruta));
+  document.querySelectorAll(`#lesson-form-${sid} .type-chip[data-mood]`).forEach(c => c.classList.toggle('on-eng', c.dataset.mood===l.mood));
+
+  // 주의 기록 복원
+  const wc = document.getElementById('ll-warn-cheat-'+sid); if (wc) wc.checked = !!l.warnCheat;
+  const wtEl = document.getElementById('ll-wt-'+sid); if (wtEl) wtEl.value = l.warnType||'';
+  document.querySelectorAll(`#lesson-form-${sid} .type-chip[data-wt]`).forEach(c => c.classList.toggle('on-eng', c.dataset.wt===l.warnType));
+  const wmEl = document.getElementById('ll-warn-memo-'+sid); if (wmEl) wmEl.value = l.warnMemo||'';
+  if (l.warnCheat || l.warnType || l.warnMemo) {
+    const ww = document.getElementById('ll-warn-wrap-'+sid);
+    if (ww) { ww.style.display = 'block'; document.getElementById('ll-warn-toggle-'+sid).classList.add('open'); }
+  }
+
+  // 숙제 복원 (별점 + 오답 + 리딩)
+  const linkedHw = l.hwId ? db.homework.find(h=>h.id===l.hwId) : null;
+  if (linkedHw) {
+    setStar(linkedHw.stars || 3);
+    document.getElementById('hw-read').value = linkedHw.read || '';
+    if (linkedHw.wrongs && linkedHw.wrongs.length) {
+      document.getElementById('hw-wrong-list').innerHTML = '';
+      wrongCounter = 0;
+      linkedHw.wrongs.forEach(w => addWrongItem(w));
+      document.getElementById('hw-wrong-wrap').style.display = 'block';
+      document.getElementById('hw-wrong-toggle').classList.add('open');
+    }
+    if (linkedHw.aiAnalysis) {
+      const aiEl = document.getElementById('hw-ai-analysis');
+      aiEl.innerHTML = renderAIAnalysisHTML(linkedHw.aiAnalysis);
+      aiEl.dataset.analysis = linkedHw.aiAnalysis;
+    }
+  } else if (l.wrongs && l.wrongs.length) {
+    // 호환: hwId 없지만 lesson에 wrongs 있는 경우
+    setStar(l.stars || 3);
+    document.getElementById('hw-wrong-list').innerHTML = '';
+    wrongCounter = 0;
+    l.wrongs.forEach(w => addWrongItem(w));
+    document.getElementById('hw-wrong-wrap').style.display = 'block';
+    document.getElementById('hw-wrong-toggle').classList.add('open');
+  }
+
+  // 스크롤
+  f.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function editHwFromTable(hwId) {
+  const h = db.homework.find(x=>x.id===hwId);
+  if (!h) return;
+  const s = db.students.find(st=>st.name===h.student);
+  if (!s) { alert('연결된 학생을 찾을 수 없습니다.'); return; }
+  // 수업 일지 찾기 (lessonId 역참조 or hwId로 찾기)
+  let lesson = (db.lessons||[]).find(l => l.id===h.lessonId || l.hwId===hwId);
+  if (!lesson) {
+    // lesson이 없으면 생성 (이전 숙제 기록 호환)
+    const lessonId = 'les_'+Date.now();
+    lesson = {
+      id: lessonId, hwId: hwId,
+      studentId: s.id, student: s.name,
+      date: h.date, onlineMin: 0, havruta: '', mood: '',
+      hard: '', memo: h.memo||'', stars: h.stars||3, wrongs: h.wrongs||[]
+    };
+    if (!db.lessons) db.lessons = [];
+    db.lessons.push(lesson);
+    h.lessonId = lessonId;
+    saveDB();
+  }
+  // 학생 상세 모달 열고 수업 일지 수정 모드
+  showStudentDetail(s.id);
+  setTimeout(() => editLesson(lesson.id, s.id), 100);
+}
+
+function deleteHwFromTable(hwId) {
+  const h = db.homework.find(x=>x.id===hwId);
+  if (!h) return;
+  if (!confirm(`${h.student}의 ${h.date} 숙제 기록을 삭제할까요?`)) return;
+  // 연결된 lesson도 삭제
+  const lessonId = h.lessonId;
+  db.homework = db.homework.filter(x=>x.id!==hwId);
+  if (lessonId) {
+    const lesson = (db.lessons||[]).find(l=>l.id===lessonId);
+    if (lesson) {
+      // 수업 일지에 다른 정보가 있으면 유지하고 hw 링크만 해제, 없으면 같이 삭제
+      const hasLessonData = lesson.onlineMin || lesson.havruta || lesson.mood || lesson.hard || lesson.memo || lesson.warnCheat || lesson.warnType;
+      if (hasLessonData) {
+        lesson.hwId = '';
+        lesson.wrongs = [];
+        lesson.stars = 3;
+      } else {
+        db.lessons = db.lessons.filter(l=>l.id!==lessonId);
+      }
+    }
+  }
   saveDB();
+  renderPage();
 }
 
 function toggleLessonShowAll(sid) {
