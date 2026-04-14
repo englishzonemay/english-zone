@@ -872,28 +872,30 @@ body {
         <div style="font-size:11px;font-weight:600;margin-bottom:14px;color:var(--text2);letter-spacing:0.5px;text-transform:uppercase">반별 학생 현황</div>
         <div id="overview-classes"></div>
       </div>
-      <div class="divider" style="margin:20px 0"></div>
-      <!-- 브리핑 섹션 -->
-      <div class="grid3" style="margin-bottom:16px" id="briefing-metrics"></div>
-      <div class="card" style="margin-bottom:12px">
-        <div style="font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;color:var(--text3);margin-bottom:12px">실험 효과 요약</div>
-        <div id="briefing-exp-summary"></div>
+      <div id="briefing-section-wrap">
+        <div class="divider" style="margin:20px 0"></div>
+        <!-- 브리핑 섹션 -->
+        <div class="grid3" style="margin-bottom:16px" id="briefing-metrics"></div>
+        <div class="card" style="margin-bottom:12px">
+          <div style="font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;color:var(--text3);margin-bottom:12px">실험 효과 요약</div>
+          <div id="briefing-exp-summary"></div>
+        </div>
+        <div class="card" style="margin-bottom:12px">
+          <div style="font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;color:var(--text3);margin-bottom:12px">숙제 퀄리티 추이</div>
+          <div id="briefing-hw-trend"></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <button class="btn btn-primary" style="flex:1" onclick="generateReport('week')">📋 이번 주 요약</button>
+          <button class="btn btn-primary" style="flex:1" onclick="generateReport('month')">📊 이번 달 요약</button>
+        </div>
+        <div id="report-result" style="margin-bottom:12px"></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn" style="flex:1;border-color:var(--accent);color:var(--accent)" onclick="generateBriefingScript()">✨ 브리핑 스크립트 자동 생성</button>
+          <button class="btn btn-sm" onclick="loadPreviousBriefings()" style="flex-shrink:0">이전 브리핑 불러오기</button>
+        </div>
+        <div id="briefing-script-result" style="margin-top:12px"></div>
+        <div id="briefing-prev-list" style="margin-top:12px"></div>
       </div>
-      <div class="card" style="margin-bottom:12px">
-        <div style="font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;color:var(--text3);margin-bottom:12px">숙제 퀄리티 추이</div>
-        <div id="briefing-hw-trend"></div>
-      </div>
-      <div style="display:flex;gap:8px;margin-bottom:12px">
-        <button class="btn btn-primary" style="flex:1" onclick="generateReport('week')">📋 이번 주 요약</button>
-        <button class="btn btn-primary" style="flex:1" onclick="generateReport('month')">📊 이번 달 요약</button>
-      </div>
-      <div id="report-result" style="margin-bottom:12px"></div>
-      <div style="display:flex;gap:8px">
-        <button class="btn" style="flex:1;border-color:var(--accent);color:var(--accent)" onclick="generateBriefingScript()">✨ 브리핑 스크립트 자동 생성</button>
-        <button class="btn btn-sm" onclick="loadPreviousBriefings()" style="flex-shrink:0">이전 브리핑 불러오기</button>
-      </div>
-      <div id="briefing-script-result" style="margin-top:12px"></div>
-      <div id="briefing-prev-list" style="margin-top:12px"></div>
     </div>
 
     <!-- STUDENTS -->
@@ -1439,6 +1441,12 @@ function setMenu(menu, el) {
   renderPage();
 }
 
+// ===== HELPERS =====
+function isVocabClass(cls) {
+  if (!cls) return false;
+  return !!cls.vocabMode || (cls.name||'').includes('선택요일');
+}
+
 // ===== PAGE RENDER =====
 function renderPage() {
   ['overview','students','homework','vocabtest','ainotes'].forEach(p => {
@@ -1457,7 +1465,7 @@ function renderPage() {
     const cls = db.classes.find(c=>c.id===currentClass);
     tabsWrap.style.display = 'block';
     renderClassTabs(cls);
-    const isVocab = cls && cls.vocabMode;
+    const isVocab = isVocabClass(cls);
     // 단어시험반: homework/ainotes 없음
     if (isVocab && (currentMenu === 'homework' || currentMenu === 'ainotes')) currentMenu = 'overview';
     // 일반반: vocabtest 없음
@@ -1475,7 +1483,7 @@ function renderPage() {
 function renderClassTabs(cls) {
   const wrap = document.getElementById('class-tabs-wrap');
   if (!cls) { wrap.style.display='none'; return; }
-  const isVocab = !!cls.vocabMode;
+  const isVocab = isVocabClass(cls);
   const tabs = isVocab
     ? [
         {k:'overview', icon:'📊', label:'현황'},
@@ -1500,7 +1508,13 @@ function switchClassTab(tab) {
 function renderOverview() {
   // 단어시험반 전용 현황
   const cur = db.classes.find(c=>c.id===currentClass);
-  if (cur && cur.vocabMode) { renderVocabOverview(cur); return; }
+  const briefWrap = document.getElementById('briefing-section-wrap');
+  if (isVocabClass(cur)) {
+    if (briefWrap) briefWrap.style.display = 'none';
+    renderVocabOverview(cur);
+    return;
+  }
+  if (briefWrap) briefWrap.style.display = 'block';
 
   const students = getFilteredStudents();
   const hw = getFilteredHW();
@@ -1704,7 +1718,7 @@ function renderStudents() {
     currentClass === 'all' ? `전체 ${students.length}명` : `${cls?.name||''}반 · ${students.length}명`;
 
   // 단어시험 모드 감지
-  if (cls && cls.vocabMode) {
+  if (isVocabClass(cls)) {
     renderVocabClass(cls, students);
     return;
   }
@@ -2050,6 +2064,18 @@ function renderExperiments() {
 
 // ===== BRIEFING =====
 function renderBriefing() {
+  // 단어시험반이면 브리핑 영역 비우기
+  const cur = db.classes.find(c=>c.id===currentClass);
+  if (isVocabClass(cur)) {
+    ['briefing-metrics','briefing-exp-summary','briefing-hw-trend','report-result','briefing-script-result','briefing-prev-list'].forEach(id=>{
+      const el = document.getElementById(id); if (el) el.innerHTML = '';
+    });
+    // 섹션 카드 자체도 숨김
+    document.querySelectorAll('#page-overview .divider, #page-overview .card:not(:first-of-type)').forEach(el=>{
+      // 브리핑 관련 카드는 renderVocabOverview에서 이미 비워짐
+    });
+    return;
+  }
   const students = getFilteredStudents();
   const hw = getFilteredHW();
   const exp = getFilteredExp();
@@ -2344,7 +2370,7 @@ function openAddStudent() {
 function onStudentClassChange() {
   const classId = document.getElementById('s-class').value;
   const c = db.classes.find(c=>c.id===classId);
-  const isVocab = c && c.vocabMode;
+  const isVocab = isVocabClass(c);
   document.getElementById('s-vocab-fields').style.display = isVocab?'block':'none';
   document.getElementById('s-normal-fields').style.display = isVocab?'none':'block';
 }
@@ -2585,7 +2611,7 @@ function saveStudent() {
   if (!name) return;
   const classId = document.getElementById('s-class').value;
   const cls = db.classes.find(c=>c.id===classId);
-  const isVocab = cls && cls.vocabMode;
+  const isVocab = isVocabClass(cls);
   const days = Array.from(document.querySelectorAll('#s-day-btns .day-btn.on')).map(b=>b.dataset.day);
   const vocabTime = document.getElementById('s-vocab-time-val').dataset.time || '';
   db.students.push({
