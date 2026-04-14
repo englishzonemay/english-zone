@@ -3690,48 +3690,62 @@ function analyzeChunkDiff(answer, student) {
 }
 
 // 차이점에서 구체적 문법 오류 분류 (카테고리 + 디테일)
+// 오류 태그 클릭 팝업
+function showErrTagPopup(el, msg, color) {
+  // 기존 팝업 제거
+  document.querySelectorAll('.err-tag-popup').forEach(p => p.remove());
+  const pop = document.createElement('div');
+  pop.className = 'err-tag-popup';
+  pop.innerHTML = msg.replace(/&apos;/g,"'").replace(/&quot;/g,'"');
+  pop.style.cssText = `position:fixed;background:${color||'var(--accent2)'};color:white;padding:8px 12px;border-radius:8px;font-size:11px;font-weight:500;box-shadow:var(--shadow-md);z-index:9999;max-width:280px;line-height:1.5;pointer-events:none`;
+  document.body.appendChild(pop);
+  const r = el.getBoundingClientRect();
+  const pr = pop.getBoundingClientRect();
+  let top = r.bottom + 6, left = r.left;
+  if (left + pr.width > window.innerWidth - 10) left = window.innerWidth - pr.width - 10;
+  if (top + pr.height > window.innerHeight - 10) top = r.top - pr.height - 6;
+  pop.style.top = top + 'px';
+  pop.style.left = Math.max(10, left) + 'px';
+  // 5초 후 자동 제거 + 다른 곳 클릭 시 제거
+  setTimeout(() => { if (pop.parentNode) pop.remove(); }, 5000);
+  setTimeout(() => {
+    document.addEventListener('click', () => pop.remove(), { once: true });
+  }, 100);
+}
+
 function detectErrorPatterns(diffs) {
   const patterns = [];
+  // 구두점 제거 헬퍼 (온라인 시험에서는 채점 안 됨)
+  const stripPunct = s => (s||'').replace(/[.?!,;:"'\u2018\u2019\u201C\u201D]/g,'').trim();
   diffs.forEach(d => {
-    const c = d.correct, w = d.wrong;
+    const cRaw = d.correct, wRaw = d.wrong;
+    const c = stripPunct(cRaw), w = stripPunct(wRaw);
+    // 구두점만 다른 경우는 무시
+    if (c.toLowerCase() === w.toLowerCase()) return;
+
     if (!c || !w || c==='(없음)' || w==='(없음)') {
-      if (c && c!=='(없음)' && (!w || w==='(없음)')) patterns.push({cat:'단어 누락', detail:`"${c}" 부분 누락`, word:c});
-      if (w && w!=='(없음)' && (!c || c==='(없음)')) patterns.push({cat:'불필요한 단어 추가', detail:`"${w}" 추가됨`, word:w});
+      if (c && c!=='(없음)' && (!w || w==='(없음)')) patterns.push({cat:'단어 누락', detail:`"${c}" 부분 누락`, word:c, why:`정답에 있어야 할 표현이 빠짐`});
+      if (w && w!=='(없음)' && (!c || c==='(없음)')) patterns.push({cat:'불필요한 단어 추가', detail:`"${w}" 추가됨`, word:w, why:`정답에 없는 표현을 잘못 추가`});
       return;
     }
     const cl = c.toLowerCase(), wl = w.toLowerCase();
 
-    // 대소문자
-    if (cl === wl && c !== w) {
-      patterns.push({cat:'대소문자 오류', detail:`"${w}" → "${c}"`, word:c});
-      return;
-    }
-
-    // 구두점 (마침표/물음표/느낌표/쉼표)
-    const punct = /[.?!,]/;
-    const cPunct = (c.match(/[.?!,]/g)||[]).join('');
-    const wPunct = (w.match(/[.?!,]/g)||[]).join('');
-    if (cPunct !== wPunct) {
-      if (cPunct && !wPunct) patterns.push({cat:'구두점 누락', detail:`"${cPunct}" 빠짐`, word:c});
-      else if (!cPunct && wPunct) patterns.push({cat:'불필요한 구두점', detail:`"${wPunct}" 추가됨`, word:w});
-      else patterns.push({cat:'구두점 오류', detail:`"${wPunct}" → "${cPunct}"`, word:c});
-    }
-
     // 전치사 오류
     const preps = ['in','on','at','to','for','with','from','of','by','about','into','onto','under','over','between','against','through','after','before','during'];
-    const cWords = cl.replace(/[.?!,]/g,'').split(/\s+/).filter(Boolean);
-    const wWords = wl.replace(/[.?!,]/g,'').split(/\s+/).filter(Boolean);
+    const cWords = cl.split(/\s+/).filter(Boolean);
+    const wWords = wl.split(/\s+/).filter(Boolean);
     const cPreps = cWords.filter(x => preps.includes(x));
     const wPreps = wWords.filter(x => preps.includes(x));
+    let prepDone = false;
     if (cPreps.length && wPreps.length) {
       const cSet = new Set(cPreps), wSet = new Set(wPreps);
       const missing = cPreps.filter(p=>!wSet.has(p));
       const extra = wPreps.filter(p=>!cSet.has(p));
-      if (missing.length && extra.length) patterns.push({cat:'전치사 오용', detail:`"${extra.join(',')}" → "${missing.join(',')}"`, word:missing[0]});
-      else if (missing.length) patterns.push({cat:'전치사 누락', detail:`"${missing.join(', ')}" 빠짐`, word:missing[0]});
-      else if (extra.length) patterns.push({cat:'불필요한 전치사', detail:`"${extra.join(',')}" 추가됨`, word:extra[0]});
+      if (missing.length && extra.length) { patterns.push({cat:'전치사 오용', detail:`"${extra.join(',')}" → "${missing.join(',')}"`, word:missing[0], why:`전치사를 잘못 선택 — at/in/on 쓰임 구분 미숙`}); prepDone=true; }
+      else if (missing.length) { patterns.push({cat:'전치사 누락', detail:`"${missing.join(', ')}" 빠짐`, word:missing[0], why:`장소·시간 앞 전치사가 빠짐`}); prepDone=true; }
+      else if (extra.length) { patterns.push({cat:'불필요한 단어 추가', detail:`"${extra.join(',')}" 추가됨`, word:extra[0], why:`정답에 없는 전치사 추가`}); prepDone=true; }
     } else if (cPreps.length && !wPreps.length) {
-      patterns.push({cat:'전치사 누락', detail:`"${cPreps.join(', ')}" 빠짐`, word:cPreps[0]});
+      patterns.push({cat:'전치사 누락', detail:`"${cPreps.join(', ')}" 빠짐`, word:cPreps[0], why:`장소·시간 앞 전치사 미암기`}); prepDone=true;
     }
 
     // 관사 (a/an/the)
@@ -3739,80 +3753,86 @@ function detectErrorPatterns(diffs) {
     const cArts = cWords.filter(x => arts.includes(x));
     const wArts = wWords.filter(x => arts.includes(x));
     if (cArts.length !== wArts.length) {
-      if (cArts.length > wArts.length) patterns.push({cat:'관사 누락', detail:`"${cArts.filter(a=>!wArts.includes(a)).join(', ')}" 빠짐`, word:c});
-      else patterns.push({cat:'불필요한 관사', detail:`"${wArts.filter(a=>!cArts.includes(a)).join(', ')}" 추가됨`, word:w});
+      if (cArts.length > wArts.length) {
+        const miss = cArts.filter(a=>!wArts.includes(a));
+        patterns.push({cat:'관사 오류', detail:`"${miss.join(', ')}" 빠짐`, word:miss[0], why:`가산명사 앞 관사 a/an/the 누락`});
+      } else {
+        const ext = wArts.filter(a=>!cArts.includes(a));
+        patterns.push({cat:'관사 오류', detail:`"${ext.join(', ')}" 불필요`, word:ext[0], why:`고유명사·복수·불가산 앞에는 관사 안 씀`});
+      }
     } else if (cArts.length && cArts.join(',') !== wArts.join(',')) {
-      patterns.push({cat:'관사 오용', detail:`"${wArts.join(',')}" → "${cArts.join(',')}"`, word:c});
+      patterns.push({cat:'관사 오류', detail:`"${wArts.join(',')}" → "${cArts.join(',')}"`, word:cArts[0], why:`a/an/the 선택 오류 — 특정성 구분 미숙`});
     }
 
-    // 대명사 격 오류
-    const pronounMap = {i:'me',he:'him',she:'her',we:'us',they:'them',me:'i',him:'he',her:'she',us:'we',them:'they'};
-    wWords.forEach((ww,j) => {
-      if (pronounMap[ww] && cWords[j] && cWords[j]===pronounMap[ww]) {
-        patterns.push({cat:'대명사 격 혼동', detail:`"${ww}" → "${cWords[j]}"`, word:cWords[j]});
-      }
-    });
-
-    // 동사 시제 (-ed)
+    // 동사 형태 오류 (시제/수일치/-ing 통합)
     cWords.forEach((cw,j) => {
       const ww = wWords[j];
-      if (!ww) return;
+      if (!ww || cw===ww) return;
+      // 과거형 -ed
       if (cw.endsWith('ed') && (cw.slice(0,-2)===ww || cw.slice(0,-1)===ww)) {
-        patterns.push({cat:'동사 시제 오류 (과거형)', detail:`"${ww}" → "${cw}"`, word:cw});
+        patterns.push({cat:'동사 형태 오류', detail:`"${ww}" → "${cw}"`, word:cw, why:`과거형(-ed)으로 변환해야 하는데 원형 사용`});
+        return;
       }
-      // 3인칭 단수 -s
+      // 3인칭 -s
       if (cw.endsWith('s') && !cw.endsWith('ss') && cw.slice(0,-1)===ww) {
-        patterns.push({cat:'주어-동사 수 일치 (3인칭 -s)', detail:`"${ww}" → "${cw}"`, word:cw});
+        patterns.push({cat:'동사 형태 오류', detail:`"${ww}" → "${cw}"`, word:cw, why:`주어가 3인칭 단수인데 동사에 -s를 안 붙임`});
+        return;
+      }
+      // 역방향: 3인칭 -s를 잘못 붙임
+      if (ww.endsWith('s') && !ww.endsWith('ss') && ww.slice(0,-1)===cw) {
+        patterns.push({cat:'동사 형태 오류', detail:`"${ww}" → "${cw}"`, word:cw, why:`주어가 복수인데 동사에 -s를 붙임`});
+        return;
       }
       // 진행형 -ing
       if (cw.endsWith('ing') && (cw.slice(0,-3)===ww||cw.slice(0,-4)===ww)) {
-        patterns.push({cat:'진행형 (-ing) 누락', detail:`"${ww}" → "${cw}"`, word:cw});
+        patterns.push({cat:'동사 형태 오류', detail:`"${ww}" → "${cw}"`, word:cw, why:`진행형(-ing) 형태로 변환해야 함`});
       }
     });
 
-    // 어순 (한국어식)
-    if (cWords.length>=3 && wWords.length>=3) {
-      // 단어들이 동일하지만 순서만 다른 경우
+    // 어순 오류 (한국어식)
+    if (cWords.length>=2 && wWords.length>=2) {
       const cSorted = [...cWords].sort().join(' ');
       const wSorted = [...wWords].sort().join(' ');
       if (cSorted === wSorted && cWords.join(' ') !== wWords.join(' ')) {
-        // 부사 위치 체크
-        const advs = ['always','often','sometimes','never','usually','already','yet','still','just','really','very'];
-        const cAdv = cWords.find(x => advs.includes(x));
-        if (cAdv) {
-          const ci = cWords.indexOf(cAdv), wi = wWords.indexOf(cAdv);
-          if (ci !== wi) patterns.push({cat:'부사 위치 오류', detail:`"${cAdv}"의 위치 잘못`, word:cAdv});
-          else patterns.push({cat:'어순 오류 (한국어식 배열)', detail:`단어는 같으나 순서 다름`, word:c});
-        } else {
-          patterns.push({cat:'어순 오류 (한국어식 배열)', detail:`단어는 같으나 순서 다름`, word:c});
+        // 어순 위치가 다른 단어 찾기
+        let firstDiff = '';
+        for (let i=0; i<cWords.length; i++) {
+          if (cWords[i] !== wWords[i]) { firstDiff = `"${wWords[i]}"의 위치를 "${cWords[i]}"로`; break; }
         }
+        patterns.push({cat:'어순 오류', detail:firstDiff||'단어 순서 잘못', word:c, why:`한국어식으로 단어 배열 — 영어 어순(주어-동사-목적어) 감각 부족`});
       }
     }
 
-    // 단어 누락/추가
-    if (cWords.length > wWords.length) {
-      const missing = cWords.filter(x => !wWords.includes(x));
-      if (missing.length) patterns.push({cat:'단어 누락', detail:`"${missing.slice(0,3).join(', ')}" 빠짐`, word:missing[0]});
-    }
-    if (wWords.length > cWords.length) {
-      const extra = wWords.filter(x => !cWords.includes(x));
-      if (extra.length) patterns.push({cat:'불필요한 단어 추가', detail:`"${extra.slice(0,3).join(', ')}" 추가됨`, word:extra[0]});
+    // 단어 누락/추가 (전치사/관사 외)
+    if (!prepDone) {
+      const arts2 = ['a','an','the'];
+      if (cWords.length > wWords.length) {
+        const missing = cWords.filter(x => !wWords.includes(x) && !preps.includes(x) && !arts2.includes(x));
+        if (missing.length) patterns.push({cat:'단어 누락', detail:`"${missing.slice(0,3).join(', ')}" 빠짐`, word:missing[0], why:`정답 문장에 있어야 할 단어가 빠짐`});
+      }
+      if (wWords.length > cWords.length) {
+        const extra = wWords.filter(x => !cWords.includes(x) && !preps.includes(x) && !arts2.includes(x));
+        if (extra.length) patterns.push({cat:'불필요한 단어 추가', detail:`"${extra.slice(0,3).join(', ')}" 추가됨`, word:extra[0], why:`정답에 없는 단어를 추가 (한국어식 표현 반영)`});
+      }
     }
 
-    // 철자 (1~2글자 차이)
+    // 스펠링 (1~2글자 차이)
     cWords.forEach((cw,j) => {
       const ww = wWords[j];
       if (!ww || cw===ww) return;
       if (cw.length>2 && ww.length>2 && Math.abs(cw.length-ww.length)<=2) {
         let diff=0; for(let k=0;k<Math.min(cw.length,ww.length);k++) if(cw[k]!==ww[k]) diff++;
         diff += Math.abs(cw.length-ww.length);
-        if (diff>0 && diff<=2) patterns.push({cat:'스펠링 오류', detail:`"${ww}" → "${cw}"`, word:cw});
+        if (diff>0 && diff<=2) patterns.push({cat:'스펠링 오류', detail:`"${ww}" → "${cw}"`, word:cw, why:`철자 1~2자 틀림 — 단어 암기 부족`});
       }
     });
   });
+  // 허용된 카테고리만 필터
+  const allowed = new Set(['어순 오류','단어 누락','전치사 누락','전치사 오용','관사 오류','동사 형태 오류','스펠링 오류','불필요한 단어 추가']);
+  const filtered = patterns.filter(p => allowed.has(p.cat));
   // dedup by cat+detail
   const seen = new Set();
-  return patterns.filter(p => {
+  return filtered.filter(p => {
     const k = p.cat+'|'+p.detail;
     if (seen.has(k)) return false;
     seen.add(k); return true;
@@ -3858,12 +3878,14 @@ function buildCurrentAnalysis(wrongs, name) {
 
   // 카테고리별 색상 맵 (태그 색상)
   const catColorMap = {
-    '부사 위치 오류': '#7B3FA0', '전치사 누락': '#C4562A', '전치사 오용': '#C4562A', '불필요한 전치사': '#C4562A',
-    '대소문자 오류': '#B8860B', '구두점 누락': '#B8860B', '불필요한 구두점': '#B8860B', '구두점 오류': '#B8860B',
-    '동사 시제 오류 (과거형)': '#185FA5', '주어-동사 수 일치 (3인칭 -s)': '#185FA5', '진행형 (-ing) 누락': '#185FA5',
-    '관사 누락': '#00897B', '관사 오용': '#00897B', '불필요한 관사': '#00897B',
-    '대명사 격 혼동': '#6A1B9A', '스펠링 오류': '#E91E63',
-    '어순 오류 (한국어식 배열)': '#D4437B', '단어 누락': '#607D8B', '불필요한 단어 추가': '#607D8B'
+    '어순 오류': '#D4437B',
+    '단어 누락': '#607D8B',
+    '전치사 누락': '#C4562A',
+    '전치사 오용': '#C4562A',
+    '관사 오류': '#00897B',
+    '동사 형태 오류': '#185FA5',
+    '스펠링 오류': '#E91E63',
+    '불필요한 단어 추가': '#7B3FA0'
   };
   const getCatColor = c => catColorMap[c] || 'var(--text2)';
 
@@ -3893,10 +3915,17 @@ function buildCurrentAnalysis(wrongs, name) {
       </div>`;
     }).join('');
 
-    // 오류 태그 (카드 맨 아래, 작게)
-    const uniqueCats = [...new Set(itemPatterns.map(p => p.cat))];
-    const tagsHtml = uniqueCats.length ? `<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)">
-      ${uniqueCats.map(c => `<span style="font-size:9px;padding:2px 7px;border-radius:10px;background:${getCatColor(c)}20;color:${getCatColor(c)};font-weight:600">🏷 ${c}</span>`).join('')}
+    // 오류 태그 (카드 맨 아래, 작게) - 클릭 시 팝업으로 원인 표시
+    // 카테고리별 첫 패턴의 detail+why를 사용
+    const tagDataMap = {};
+    itemPatterns.forEach(p => { if (!tagDataMap[p.cat]) tagDataMap[p.cat] = p; });
+    const uniqueCats = Object.keys(tagDataMap);
+    const tagsHtml = uniqueCats.length ? `<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);position:relative">
+      ${uniqueCats.map(c => {
+        const p = tagDataMap[c];
+        const why = `${p.detail} → ${p.why||'규칙 미숙'}`;
+        return `<span class="err-tag" style="font-size:10px;padding:3px 8px;border-radius:10px;background:${getCatColor(c)}20;color:${getCatColor(c)};font-weight:600;cursor:pointer;user-select:none" onclick="event.stopPropagation();showErrTagPopup(this,'${why.replace(/'/g,"&apos;").replace(/"/g,'&quot;')}','${getCatColor(c)}')">🏷 ${c}</span>`;
+      }).join('')}
     </div>` : '';
 
     return `<div style="padding:10px 12px;background:var(--surface);border-radius:6px;margin-bottom:8px;border-left:3px solid var(--accent2);box-shadow:var(--shadow)">
@@ -3916,25 +3945,14 @@ function buildCurrentAnalysis(wrongs, name) {
 
   // 이유(한 줄) 맵
   const reasonMap = {
-    '부사 위치 오류': '빈도부사는 일반동사 앞, be동사 뒤 규칙 미숙',
+    '어순 오류': '한국어식 사고로 영어 어순 감각 부족',
+    '단어 누락': '문장 완결성 확인 습관 부족',
     '전치사 누락': '장소·시간 앞 전치사 개념 자체가 약함',
     '전치사 오용': 'at/in/on 쓰임 구분 미숙',
-    '불필요한 전치사': '한국어식 표현을 그대로 옮기는 습관',
-    '대소문자 오류': '문장 시작·고유명사 대문자 규칙 미숙',
-    '구두점 누락': '문장 마무리 체크 습관 부족',
-    '불필요한 구두점': '문장 구조에 맞지 않는 구두점 사용',
-    '구두점 오류': '문장 종류별 구두점 구분 미숙',
-    '동사 시제 오류 (과거형)': '과거 시점과 동사 변환 연결 약함',
-    '주어-동사 수 일치 (3인칭 -s)': '3인칭 단수 규칙 반복 학습 필요',
-    '진행형 (-ing) 누락': 'be + -ing 구조 미숙',
-    '관사 누락': '가산명사와 관사 관계 개념 약함',
-    '관사 오용': 'a/an/the 구분(특정성) 미숙',
-    '불필요한 관사': '고유명사·복수·불가산 앞 관사 규칙 혼동',
-    '대명사 격 혼동': '주격/목적격 구분 미숙',
+    '관사 오류': '가산명사와 관사 관계 개념 약함',
+    '동사 형태 오류': '시제·수일치·-ing 변환 미숙',
     '스펠링 오류': '단어 철자 암기 부족',
-    '어순 오류 (한국어식 배열)': '한국어식 사고로 영어 어순 감각 부족',
-    '단어 누락': '문장 완결성 확인 습관 부족',
-    '불필요한 단어 추가': '한국어 표현을 그대로 옮김'
+    '불필요한 단어 추가': '한국어 표현을 그대로 옮기는 습관'
   };
   // ===== A. 핵심 약점 TOP 3 (이번 + 누적 합산) =====
   const combinedCatCounts = {};
