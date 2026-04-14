@@ -847,24 +847,130 @@ body {
 .checklist-item:last-child { border-bottom:none; }
 .cl-icon { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
 
-@media (max-width: 700px) {
+@media (max-width: 900px) {
+  /* 가로 스크롤 방지 */
+  html, body { overflow-x: hidden !important; max-width: 100vw !important; }
+
+  /* 사이드바 숨기고 햄버거 노출 */
   .sidebar { display: none !important; }
-  .hamburger { display: block; }
-  .grid3 { grid-template-columns: 1fr 1fr; }
-  .grid4 { grid-template-columns: 1fr 1fr; }
-  .main { padding: 14px; }
+  .hamburger { display: block !important; font-size: 24px !important; padding: 8px 10px !important; min-height: 44px !important; min-width: 44px !important; }
+
+  /* 모바일 메뉴 전체 화면 오버레이 */
+  .mobile-menu {
+    position: fixed; top: 56px; left: 0; right: 0; bottom: 0;
+    padding: 16px 18px; overflow-y: auto; z-index: 150;
+    animation: slideDown 0.2s ease;
+  }
+  .mobile-menu .mm-item { padding: 14px 12px; font-size: 15px; min-height: 44px; }
+  .mobile-menu .mm-label { font-size: 11px; margin: 14px 0 6px; }
+
+  /* 헤더 — 강력 정리 */
+  .header { padding: 0 12px !important; gap: 6px !important; }
+  .header-logo { font-size: 16px !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; max-width: none !important; }
+  .header-logo span { display: none !important; } /* "코칭 트래커" 부제 완전 숨김 */
+  #global-search,
+  .header input[id="global-search"] { display: none !important; width: 0 !important; }
+  #search-results { display: none !important; }
+  #header-class-name { display: none !important; } /* "W16 반" 헤더 텍스트 숨김 */
+  /* 상담일지 버튼 아이콘만 */
+  .header-counsel-btn {
+    font-size: 0 !important; padding: 0 !important;
+    width: 40px !important; height: 40px !important; min-width: 40px !important;
+    display: inline-flex !important; align-items: center !important; justify-content: center !important;
+    border-radius: 8px !important;
+  }
+  .header-counsel-btn::before { content: '📋'; font-size: 18px; }
+
+  /* 클래스 탭 — 가로 스크롤 유지, 줄바꿈 금지 */
+  .class-tabs {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .class-tabs::-webkit-scrollbar { display: none; }
+  .class-tab {
+    flex-shrink: 0; white-space: nowrap;
+    padding: 10px 14px; font-size: 13px; min-height: 40px;
+  }
+
+  /* 메인 컨텐츠 */
+  .main { padding: 12px; max-width: 100%; }
   .page-title { font-size: 18px; }
-  .hw-table { font-size: 11px; }
-  .hw-table th, .hw-table td { padding: 6px 4px; }
-  .student-card { padding: 10px; }
-  .btn { padding: 7px 14px; font-size: 12px; }
-  .btn-sm { padding: 6px 10px; }
-  .modal { margin: 10px; max-height: 90vh; overflow-y: auto; }
-  .field-row { grid-template-columns: 1fr; }
+  .page-header { flex-direction: column; gap: 8px; align-items: flex-start; }
+
+  /* 그리드 축소 */
+  .grid3, .grid4 { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .field-row { grid-template-columns: 1fr !important; gap: 8px !important; }
+
+  /* 카드 */
+  .card { padding: 12px; }
+  .student-card { padding: 12px; gap: 10px; }
+  .student-name { font-size: 14px; }
+
+  /* 버튼 — 터치 친화 (최소 44px) */
+  .btn { min-height: 44px; padding: 10px 16px; font-size: 13px; }
+  .btn-sm { min-height: 36px; padding: 8px 12px; font-size: 12px; }
+
+  /* 입력란 — 터치 친화 + iOS 줌 방지 (16px) */
+  .field input, .field textarea, .field select,
+  input[type="text"], input[type="number"], input[type="date"], input[type="password"], textarea, select {
+    min-height: 44px; font-size: 16px; padding: 10px 12px;
+  }
+  .field textarea { min-height: 80px; }
+
+  /* 칩/배지 */
+  .type-chip, .day-btn { min-height: 36px; padding: 8px 14px; font-size: 13px; }
+  .badge { font-size: 11px; padding: 3px 8px; }
+
+  /* 숙제 검사 테이블 → 카드 형태로 변환 */
+  .hw-table, .hw-table thead, .hw-table tbody, .hw-table tr, .hw-table td { display: block; width: 100%; }
+  .hw-table colgroup { display: none; }
+  .hw-table thead { display: none; }
+  .hw-table tr {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 12px; margin-bottom: 8px;
+  }
+  .hw-table tr:hover td { background: transparent; }
+  .hw-table td {
+    padding: 4px 0; border: none; white-space: normal; overflow: visible; text-overflow: clip;
+    font-size: 13px; line-height: 1.5;
+  }
+  .hw-table td:empty { display: none; }
+  .hw-table td:before {
+    content: attr(data-label); display: inline-block; min-width: 60px;
+    font-size: 11px; color: var(--text3); font-weight: 600; margin-right: 8px;
+  }
+
+  /* 기타 테이블 */
+  .coach-table { font-size: 12px; }
+  .coach-table th, .coach-table td { padding: 6px 4px; }
+
+  /* 모달 — 전체 화면 */
+  .modal-overlay { padding: 0; align-items: stretch; }
+  .modal {
+    margin: 0; border-radius: 0; max-width: 100%; width: 100%;
+    max-height: 100vh; height: 100vh; padding: 16px; overflow-y: auto;
+  }
+  .modal-header { margin-bottom: 14px; position: sticky; top: 0; background: var(--surface); padding-bottom: 8px; z-index: 1; }
+  .modal-title { font-size: 15px; }
+  .modal-close { font-size: 24px; padding: 8px 12px; min-width: 44px; min-height: 44px; }
+  .modal-footer { position: sticky; bottom: 0; background: var(--surface); padding: 10px 0; margin-top: 10px; border-top: 1px solid var(--border); }
+  .modal-footer .btn { flex: 1; }
+
+  /* 검색/입력 */
   .coach-input-wrap { flex-direction: column; }
   .coach-input-wrap button { width: 100%; }
-  .page-header { flex-direction: column; gap: 8px; align-items: flex-start; }
+  .search-wrap input { font-size: 15px; padding: 12px 14px 12px 40px; }
+
+  /* 오답 분석 등 내부 카드 */
+  .wrong-item { padding: 10px; }
+
+  /* 체크리스트 탭 바 — 가로 스크롤 허용 */
+  .checklist-card { padding: 12px; }
 }
+
+@keyframes slideDown { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:none; } }
 </style>
 </head>
 <body>
@@ -881,7 +987,7 @@ body {
       <div id="search-results" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:var(--shadow-md);min-width:200px;max-height:240px;overflow-y:auto;z-index:200"></div>
     </div>
     <span id="header-class-name" style="font-size:12px;opacity:0.7"></span>
-    <button class="btn btn-sm" style="background:rgba(255,255,255,0.15);border-color:rgba(255,255,255,0.3);color:white" onclick="openModal('modal-counseling')">📋 상담일지</button>
+    <button class="btn btn-sm header-counsel-btn" style="background:rgba(255,255,255,0.15);border-color:rgba(255,255,255,0.3);color:white" onclick="openModal('modal-counseling')">📋 상담일지</button>
     <button class="btn btn-sm" style="background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.2);color:white;font-size:11px" onclick="openModal('modal-api-key')">⚙️</button>
   </div>
 </header>
@@ -1649,6 +1755,8 @@ function toggleMobileMenu() {
   const m = document.getElementById('mobile-menu');
   m.classList.toggle('open');
   if (m.classList.contains('open')) renderMobileMenu();
+  // 스크롤 잠금 (모바일 메뉴 열렸을 때)
+  document.body.style.overflow = m.classList.contains('open') ? 'hidden' : '';
 }
 
 function renderMobileMenu() {
@@ -1669,6 +1777,7 @@ function mobileClassNav(classId) {
   renderSidebar();
   renderPage();
   document.getElementById('mobile-menu').classList.remove('open');
+  document.body.style.overflow = '';
   renderMobileMenu();
 }
 
@@ -2236,13 +2345,13 @@ function renderHomework() {
     const wrongPart = wrongCount ? `<span class="badge badge-red" style="cursor:pointer;font-size:10px" onclick="showWrongDetail('${h.id}')">${wrongCount}문제</span>` : '';
     const wrongAi = wrongPart ? `<div style="display:flex;gap:4px;align-items:center;flex-wrap:nowrap">${wrongPart}</div>` : '<span style="color:var(--text3)">—</span>';
     return `<tr>
-      <td style="color:var(--text2)" title="${h.date||''}">${shortDate(h.date)}</td>
-      <td title="${h.student||''}"><b style="font-weight:500">${h.student}</b></td>
-      <td>${cls?`<span class="badge" style="background:${cls.color}20;color:${cls.color}">${cls.name}</span>`:''}</td>
-      <td><span style="color:${h.stars>=4?'var(--accent)':h.stars>=3?'var(--gold)':'var(--accent2)'}">${'★'.repeat(h.stars)}${'☆'.repeat(5-h.stars)}</span>${h.qualityMemo?`<span style="font-size:10px;color:var(--text2);font-style:italic;margin-left:4px" title="${h.qualityMemo}">"${h.qualityMemo.length>10?h.qualityMemo.slice(0,10)+'…':h.qualityMemo}"</span>`:''}</td>
-      <td>${wrongAi}</td>
-      <td style="color:var(--text2)" title="${h.memo||''}">${h.memo||'—'}</td>
-      <td>
+      <td data-label="날짜" style="color:var(--text2)" title="${h.date||''}">${shortDate(h.date)}</td>
+      <td data-label="학생" title="${h.student||''}"><b style="font-weight:500">${h.student}</b></td>
+      <td data-label="반">${cls?`<span class="badge" style="background:${cls.color}20;color:${cls.color}">${cls.name}</span>`:''}</td>
+      <td data-label="퀄리티"><span style="color:${h.stars>=4?'var(--accent)':h.stars>=3?'var(--gold)':'var(--accent2)'}">${'★'.repeat(h.stars)}${'☆'.repeat(5-h.stars)}</span>${h.qualityMemo?`<span style="font-size:10px;color:var(--text2);font-style:italic;margin-left:4px" title="${h.qualityMemo}">"${h.qualityMemo.length>10?h.qualityMemo.slice(0,10)+'…':h.qualityMemo}"</span>`:''}</td>
+      <td data-label="오답">${wrongAi}</td>
+      <td data-label="특이사항" style="color:var(--text2)" title="${h.memo||''}">${h.memo||'—'}</td>
+      <td data-label="">
         <button class="btn btn-sm" onclick="editHwFromTable('${h.id}')" style="font-size:10px;padding:3px 6px">수정</button>
         <button class="btn btn-sm" onclick="deleteHwFromTable('${h.id}')" style="font-size:10px;padding:3px 6px;color:var(--accent2);border-color:var(--accent2)">삭제</button>
       </td>
