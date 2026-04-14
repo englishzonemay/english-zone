@@ -569,6 +569,43 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
+/* CLASS TABS (상단 탭 바) */
+.class-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 20px;
+  background: var(--surface);
+  padding: 4px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  overflow-x: auto;
+}
+.class-tab {
+  flex: 1;
+  min-width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border: none;
+  background: transparent;
+  color: var(--text2);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: calc(var(--radius) - 4px);
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.class-tab:hover { background: var(--surface2); color: var(--text); }
+.class-tab.active {
+  background: var(--accent);
+  color: white;
+  font-weight: 600;
+}
+
 /* AI NOTES TABS */
 .ai-tabs {
   display: flex;
@@ -802,11 +839,6 @@ body {
 
 <!-- MOBILE MENU -->
 <div class="mobile-menu" id="mobile-menu">
-  <div class="mm-label">메뉴</div>
-  <div class="mm-item active" onclick="mobileNav('overview')">현황 & 브리핑</div>
-  <div class="mm-item" onclick="mobileNav('students')">학생 카드</div>
-  <div class="mm-item" onclick="mobileNav('homework')">숙제 검사</div>
-  <div class="mm-item" onclick="mobileNav('ainotes')">AI 노트</div>
   <div class="mm-label">반 선택</div>
   <div id="mobile-class-list"></div>
 </div>
@@ -815,23 +847,6 @@ body {
   <!-- SIDEBAR -->
   <aside class="sidebar">
     <div class="sidebar-section">
-      <div class="sidebar-label">메뉴</div>
-      <div class="sidebar-item active" onclick="setMenu('overview',this)">
-        <div class="dot"></div> 현황 & 브리핑
-      </div>
-      <div class="sidebar-item" onclick="setMenu('students',this)">
-        <div class="dot"></div> 학생 카드
-      </div>
-      <div class="sidebar-item" onclick="setMenu('homework',this)">
-        <div class="dot"></div> 숙제 검사
-      </div>
-      <div class="sidebar-item" onclick="setMenu('ainotes',this)">
-        <div class="dot"></div> AI 노트
-      </div>
-    </div>
-    <div class="sidebar-divider"></div>
-    <div class="sidebar-section">
-      <div class="sidebar-label">반 선택</div>
       <div id="class-list-sidebar"></div>
       <button class="btn-add-class" onclick="openAddClass()">+ 반 추가</button>
     </div>
@@ -839,6 +854,9 @@ body {
 
   <!-- MAIN -->
   <main class="main">
+
+    <!-- CLASS TABS (반 선택 시에만 표시) -->
+    <div id="class-tabs-wrap" style="display:none"></div>
 
     <!-- OVERVIEW & BRIEFING (통합) -->
     <div id="page-overview">
@@ -1263,7 +1281,7 @@ let dragSrcIdx = null;
 function renderSidebar() {
   const el = document.getElementById('class-list-sidebar');
   let html = `<div class="sidebar-item ${currentClass==='all'?'active':''}" onclick="setClass('all',this)">
-    <div class="dot" style="${currentClass==='all'?'background:var(--accent)':''}"></div> 전체
+    <div class="dot" style="${currentClass==='all'?'background:var(--accent)':''}"></div> 전체 현황
   </div>`;
   db.classes.forEach((c, idx) => {
     const isActive = currentClass === c.id;
@@ -1381,6 +1399,7 @@ function hexToLight(hex) {
 
 function setClass(id, el) {
   currentClass = id;
+  currentMenu = 'overview';
   renderSidebar();
   renderPage();
 }
@@ -1399,14 +1418,53 @@ function renderPage() {
   ['overview','students','homework','ainotes'].forEach(p => {
     document.getElementById('page-'+p).style.display = 'none';
   });
-  // 이전 메뉴 호환: experiments/briefing → overview로 리다이렉트
+  // 이전 메뉴 호환
   if (currentMenu === 'experiments' || currentMenu === 'briefing') currentMenu = 'overview';
-  document.getElementById('page-'+currentMenu).style.display = 'block';
 
-  if (currentMenu === 'overview') { renderOverview(); renderBriefing(); }
-  else if (currentMenu === 'students') renderStudents();
-  else if (currentMenu === 'homework') renderHomework();
-  else if (currentMenu === 'ainotes') renderAINotes();
+  const tabsWrap = document.getElementById('class-tabs-wrap');
+  if (currentClass === 'all') {
+    // 전체 현황
+    tabsWrap.style.display = 'none';
+    currentMenu = 'overview';
+    document.getElementById('page-overview').style.display = 'block';
+    renderOverview(); renderBriefing();
+  } else {
+    // 반 선택 시 — 탭 표시
+    const cls = db.classes.find(c=>c.id===currentClass);
+    tabsWrap.style.display = 'block';
+    renderClassTabs(cls);
+    // vocab 모드는 homework/ainotes 없음 → overview/students로 제한
+    if (cls && cls.vocabMode && (currentMenu === 'homework')) currentMenu = 'students';
+    document.getElementById('page-'+currentMenu).style.display = 'block';
+    if (currentMenu === 'overview') { renderOverview(); renderBriefing(); }
+    else if (currentMenu === 'students') renderStudents();
+    else if (currentMenu === 'homework') renderHomework();
+    else if (currentMenu === 'ainotes') renderAINotes();
+  }
+}
+
+function renderClassTabs(cls) {
+  const wrap = document.getElementById('class-tabs-wrap');
+  if (!cls) { wrap.style.display='none'; return; }
+  const isVocab = !!cls.vocabMode;
+  const tabs = isVocab
+    ? [
+        {k:'overview', icon:'📊', label:'현황'},
+        {k:'students', icon:'📖', label:'단어시험'},
+        {k:'ainotes', icon:'📋', label:'AI 노트'}
+      ]
+    : [
+        {k:'overview', icon:'📊', label:'현황'},
+        {k:'students', icon:'👩‍🎓', label:'학생'},
+        {k:'homework', icon:'📝', label:'숙제검사'},
+        {k:'ainotes', icon:'📋', label:'AI 노트'}
+      ];
+  wrap.innerHTML = `<div class="class-tabs">${tabs.map(t=>`<button class="class-tab${t.k===currentMenu?' active':''}" onclick="switchClassTab('${t.k}')">${t.icon} ${t.label}</button>`).join('')}</div>`;
+}
+
+function switchClassTab(tab) {
+  currentMenu = tab;
+  renderPage();
 }
 
 // ===== OVERVIEW =====
@@ -1478,32 +1536,18 @@ function toggleMobileMenu() {
 function renderMobileMenu() {
   const el = document.getElementById('mobile-class-list');
   if (!el) return;
-  let html = `<div class="mm-item ${currentClass==='all'?'active':''}" onclick="mobileClassNav('all')">전체</div>`;
+  let html = `<div class="mm-item ${currentClass==='all'?'active':''}" onclick="mobileClassNav('all')">전체 현황</div>`;
   db.classes.forEach(c => {
     html += `<div class="mm-item ${currentClass===c.id?'active':''}" onclick="mobileClassNav('${c.id}')">
       <span style="width:8px;height:8px;border-radius:50%;background:${c.color}"></span>${c.name}
     </div>`;
   });
   el.innerHTML = html;
-  // update menu items active state
-  document.querySelectorAll('#mobile-menu .mm-item').forEach(el => {
-    if (el.onclick && el.onclick.toString().includes('mobileNav')) {
-      const menu = el.onclick.toString().match(/mobileNav\('(\w+)'\)/);
-      if (menu) el.classList.toggle('active', menu[1]===currentMenu);
-    }
-  });
-}
-
-function mobileNav(menu) {
-  currentMenu = menu;
-  renderSidebar();
-  renderPage();
-  document.getElementById('mobile-menu').classList.remove('open');
-  renderMobileMenu();
 }
 
 function mobileClassNav(classId) {
   currentClass = classId;
+  currentMenu = 'overview';
   renderSidebar();
   renderPage();
   document.getElementById('mobile-menu').classList.remove('open');
