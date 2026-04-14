@@ -262,6 +262,57 @@ body {
 .field textarea { height: 80px; resize: vertical; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
+/* TOGGLE FIELD (체크박스 + 라벨) */
+.toggle-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text);
+  transition: all 0.15s;
+  user-select: none;
+}
+.toggle-field:hover { border-color: var(--accent); }
+.toggle-field input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  cursor: pointer;
+  flex-shrink: 0;
+  position: relative;
+  transition: all 0.15s;
+  margin: 0;
+}
+.toggle-field input[type="checkbox"]:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.toggle-field input[type="checkbox"]:checked::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 13px;
+  font-weight: 700;
+}
+.toggle-field:has(input:checked) {
+  background: var(--accent-light);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 500;
+}
+
 /* STARS */
 .stars { display: flex; gap: 4px; }
 .star { font-size: 22px; cursor: pointer; color: var(--border); transition: color 0.1s; }
@@ -993,7 +1044,10 @@ body {
   </div>
   <div class="time-preview" id="class-time-preview">요일과 시간을 선택하세요</div>
   <div class="field" style="margin-top:8px">
-    <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="class-vocab-mode"> 단어시험 모드 (선택요일반 전용)</label>
+    <label class="toggle-field" for="class-vocab-mode">
+      <input type="checkbox" id="class-vocab-mode">
+      <span>단어시험 모드 <span style="font-size:11px;color:var(--text3);font-weight:400">(선택요일 전용)</span></span>
+    </label>
   </div>
   <div class="field">
     <label>반 색상</label>
@@ -1029,7 +1083,10 @@ body {
   </div>
   <div class="time-preview" id="edit-class-time-preview">요일과 시간을 선택하세요</div>
   <div class="field" style="margin-top:8px">
-    <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="edit-class-vocab-mode"> 단어시험 모드 (선택요일반 전용)</label>
+    <label class="toggle-field" for="edit-class-vocab-mode">
+      <input type="checkbox" id="edit-class-vocab-mode">
+      <span>단어시험 모드 <span style="font-size:11px;color:var(--text3);font-weight:400">(선택요일 전용)</span></span>
+    </label>
   </div>
   <div class="field">
     <label>반 색상</label>
