@@ -3509,7 +3509,6 @@ function buildCurrentAnalysis(wrongs, name) {
   // 전체 오류 패턴 수집
   const allPatterns = [];
   const allDiffs = [];
-  const drillItems = [];
 
   let problems = wrongs.map((w,i) => {
     const det = w.details || {};
@@ -3528,8 +3527,6 @@ function buildCurrentAnalysis(wrongs, name) {
       let diffDetail = '';
       if (diffs.length) {
         diffDetail = diffs.map(df => `<div style="font-size:11px;margin-left:8px;color:var(--accent2)">· 청크${df.pos}: <s style="color:var(--accent2)">${df.wrong}</s> → <b style="color:var(--accent)">${df.correct}</b></div>`).join('');
-        // 드릴 아이템 수집
-        diffs.forEach(df => drillItems.push(df.correct));
       }
       let patternDetail = patterns.length ? `<div style="font-size:11px;margin-top:3px;padding:3px 8px;background:var(--accent2-light);border-radius:4px">${patterns.map(p=>`<span style="color:var(--accent2)">⚡ ${p}</span>`).join(' ')}</div>` : '';
 
