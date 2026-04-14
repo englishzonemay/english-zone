@@ -3897,13 +3897,15 @@ function buildCurrentAnalysis(wrongs, name) {
   const pastWrongs = pastHW.flatMap(h=>h.wrongs);
   const pastTC = countTypes(pastWrongs);
 
-  let chart = `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:12px 0">
-    ${areas.map(a => `<div style="text-align:center;padding:10px;background:${a.bg};border-radius:var(--radius-sm);border:1px solid ${a.color}20">
-      <div style="font-size:20px;font-weight:700;color:${a.color}">${a.c}</div>
-      <div style="font-size:11px;color:${a.color};font-weight:600">${a.n}</div>
-      <div style="font-size:10px;color:var(--text3)">${total?Math.round(a.c/total*100):0}%</div>
+  // 유형별 요약: 0인 항목 제외, 한 줄 리스트
+  const nonZero = areas.filter(a => a.c > 0);
+  const chart = nonZero.length ? `<div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px">
+    ${nonZero.map(a => `<div style="display:flex;align-items:center;gap:8px;padding:5px 10px;background:var(--surface);border-radius:6px;border-left:3px solid ${a.color};font-size:12px">
+      <span style="flex:1;font-weight:500">${a.n}</span>
+      <span style="color:${a.color};font-weight:600">${a.c}문제</span>
+      <span style="font-size:10px;color:var(--text3);min-width:36px;text-align:right">${total?Math.round(a.c/total*100):0}%</span>
     </div>`).join('')}
-  </div>`;
+  </div>` : '';
 
   // 전체 오류 패턴 수집
   const allPatterns = [];
@@ -3969,10 +3971,10 @@ function buildCurrentAnalysis(wrongs, name) {
       ${uniqueCats.map(c => `<span style="font-size:10px;padding:3px 8px;border-radius:10px;background:${getCatColor(c)}20;color:${getCatColor(c)};font-weight:600">🏷 ${c}</span>`).join('')}
     </div>` : '';
 
-    return `<div style="padding:10px 12px;background:var(--surface);border-radius:6px;margin-bottom:8px;border-left:3px solid var(--accent2);box-shadow:var(--shadow)">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-        <b style="font-size:13px;color:var(--accent2)">${w.num||i+1}번</b>
-        <div style="display:flex;gap:4px">${typeLabels}</div>
+    return `<div style="padding:8px 10px;background:var(--surface2);border-radius:6px;margin-bottom:6px;border-left:3px solid var(--accent2)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
+        <b style="font-size:12px;color:var(--accent2)">${w.num||i+1}번</b>
+        <div style="display:flex;gap:3px">${typeLabels}</div>
       </div>
       ${typeAnalysis}
       ${tagsHtml}
@@ -4000,23 +4002,23 @@ function buildCurrentAnalysis(wrongs, name) {
   Object.keys(catCounts).forEach(c => combinedCatCounts[c] = (combinedCatCounts[c]||0) + catCounts[c]);
   Object.keys(pastPatternCatCounts).forEach(c => combinedCatCounts[c] = (combinedCatCounts[c]||0) + pastPatternCatCounts[c]);
   const top3 = Object.entries(combinedCatCounts).sort((a,b)=>b[1]-a[1]).slice(0,3);
-  const top3Html = top3.length ? `<div style="display:flex;flex-direction:column;gap:6px">
+  const top3Html = top3.length ? `<div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px">
     ${top3.map(([cat,total],i) => {
       const reason = reasonMap[cat] || '해당 문법 규칙 재학습 필요';
       const color = getCatColor(cat);
       const rank = ['🥇','🥈','🥉'][i] || '#'+(i+1);
-      return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface);border-radius:6px;border-left:3px solid ${color}">
-        <div style="font-size:18px;width:24px;text-align:center">${rank}</div>
+      return `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--surface2);border-radius:6px;border-left:3px solid ${color}">
+        <div style="font-size:14px;width:20px;text-align:center;flex-shrink:0">${rank}</div>
         <div style="flex:1;min-width:0">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">
+          <div style="display:flex;align-items:center;gap:6px">
             <b style="font-size:12px;color:${color}">${cat}</b>
-            <span style="font-size:10px;padding:1px 7px;border-radius:8px;background:${color}20;color:${color};font-weight:600">${total}회</span>
+            <span style="font-size:10px;padding:1px 6px;border-radius:8px;background:${color}20;color:${color};font-weight:600">${total}회</span>
           </div>
-          <div style="font-size:11px;color:var(--text2)">${reason}</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:1px">${reason}</div>
         </div>
       </div>`;
     }).join('')}
-  </div>` : '<div style="font-size:12px;color:var(--text3)">패턴 감지를 위해 정답/학생답안을 모두 입력해주세요</div>';
+  </div>` : '<div style="font-size:12px;color:var(--text3);margin-bottom:10px">패턴 감지를 위해 정답/학생답안을 모두 입력해주세요</div>';
 
   // ===== B. 누적 비교 =====
   const curCatSet = new Set(Object.keys(catCounts));
@@ -4027,7 +4029,7 @@ function buildCurrentAnalysis(wrongs, name) {
 
   let compareHtml;
   if (!pastWrongs.length) {
-    compareHtml = '<div style="padding:10px;background:var(--surface);border-radius:6px;font-size:12px;color:var(--text3)">첫 기록입니다. 다음 회차부터 비교가 가능합니다.</div>';
+    compareHtml = '<div style="padding:8px 10px;background:var(--surface2);border-radius:6px;font-size:12px;color:var(--text3)">첫 기록입니다. 다음 회차부터 비교 가능</div>';
   } else {
     const lines = [];
     improved.forEach(c => lines.push({icon:'✅',color:'var(--accent)',text:`<b>${c}</b> — 이번엔 안 나타남`}));
@@ -4037,29 +4039,31 @@ function buildCurrentAnalysis(wrongs, name) {
     });
     brandNew.forEach(c => lines.push({icon:'🆕',color:'var(--gold)',text:`<b>${c}</b> — 이번에 새로 감지`}));
     if (!lines.length) {
-      compareHtml = '<div style="padding:10px;background:var(--surface);border-radius:6px;font-size:12px;color:var(--text3)">변화 없음</div>';
+      compareHtml = '<div style="padding:8px 10px;background:var(--surface2);border-radius:6px;font-size:12px;color:var(--text3)">변화 없음</div>';
     } else {
-      compareHtml = `<div style="display:flex;flex-direction:column;gap:4px">
-        ${lines.map(l => `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--surface);border-radius:6px;border-left:3px solid ${l.color};font-size:12px">
-          <span style="font-size:14px">${l.icon}</span>
+      compareHtml = `<div style="display:flex;flex-direction:column;gap:3px">
+        ${lines.map(l => `<div style="display:flex;align-items:center;gap:6px;padding:5px 10px;background:var(--surface2);border-radius:6px;border-left:3px solid ${l.color};font-size:12px">
+          <span style="font-size:13px">${l.icon}</span>
           <span>${l.text}</span>
         </div>`).join('')}
       </div>`;
     }
   }
 
-  return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid var(--accent2)">
-      <span style="font-size:16px">📊</span>
-      <b style="font-size:14px;color:var(--accent2)">이번 회차 분석 — ${name}</b>
-      <span class="badge badge-red">${total}문제</span>
+  const sectionTitle = (icon, text, color) => `<div style="font-size:11px;font-weight:700;color:${color};letter-spacing:0.3px;text-transform:uppercase;margin:4px 0 8px">${icon} ${text}</div>`;
+
+  return `<div class="card" style="padding:14px;margin-top:0">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      <span style="font-size:14px">📊</span>
+      <b style="font-size:13px;color:var(--accent2)">${name} · 이번 회차 분석</b>
+      <span class="badge badge-red" style="margin-left:auto">${total}문제</span>
     </div>
-    ${chart}
-    <div style="margin:12px 0 6px;font-weight:700;color:var(--accent);font-size:13px;border-bottom:1px solid var(--border);padding-bottom:4px">📝 문제별 비교</div>
+    ${chart?sectionTitle('📋','유형별 요약','var(--text3)')+chart:''}
+    ${sectionTitle('📝','문제별 비교','var(--accent)')}
     ${problems}
-    <div style="margin:14px 0 8px;font-weight:700;color:var(--accent2);font-size:13px;border-bottom:1px solid var(--border);padding-bottom:4px">🎯 핵심 약점 TOP 3 (누적 기준)</div>
+    ${sectionTitle('🎯','핵심 약점 TOP 3 (누적)','var(--accent2)')}
     ${top3Html}
-    <div style="margin:14px 0 8px;font-weight:700;color:var(--gold);font-size:13px;border-bottom:1px solid var(--border);padding-bottom:4px">📈 누적 비교</div>
+    ${sectionTitle('📈','누적 비교','var(--gold)')}
     ${compareHtml}
   </div>`;
 }
