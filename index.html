@@ -1757,6 +1757,8 @@ function renderStudents() {
     if (weakType) summaryParts.push(`취약:${weakType}`);
     if (stayN||earlyN) summaryParts.push(`보충:${stayN?'스테이'+stayN:''}${earlyN?(stayN?'+':'')+'조기'+earlyN:''}`);
     const summaryLine = summaryParts.join(' · ');
+    // 주의 기록 카운트
+    const warnCount = (db.lessons||[]).filter(l => l.studentId===s.id && (l.warnCheat || l.warnType || l.warnMemo)).length;
 
     html += `<div class="student-card" onclick="showStudentDetail('${s.id}')">
       <div class="avatar" style="background:${color}20;color:${color}">${s.name.slice(0,2)}</div>
@@ -1766,6 +1768,7 @@ function renderStudents() {
           <span class="badge badge-gray" style="font-size:10px">${s.grade}</span>
           ${s.mbti?`<span class="badge badge-blue" style="font-size:9px">${s.mbti}</span>`:''}
           ${trend}
+          ${warnCount?`<span style="font-size:10px;color:var(--text3);opacity:0.7" title="주의 기록 ${warnCount}건">⚠️ ${warnCount}</span>`:''}
         </div>
         <div class="student-meta">${cls?'['+cls.name+'] ':''} ${s.trait?s.trait.slice(0,20)+'…':''}</div>
         ${summaryLine?`<div style="font-size:10px;color:var(--text2);margin-top:2px">${summaryLine}</div>`:''}
@@ -1867,6 +1870,9 @@ function showStudentDetail(id) {
 
     <!-- 수업 일지 섹션 -->
     ${renderLessonSection(s)}
+
+    <!-- 주의 기록 모아보기 -->
+    ${renderWarningSection(s)}
 
     <!-- 코칭 전략 카드 -->
     <div class="coach-section" style="background:#EAF1FB;border:1px solid #b8d4f0">
@@ -2324,6 +2330,29 @@ function toggleStudentEdit(id) {
   form.style.display = form.style.display === 'none' ? 'block' : 'none';
 }
 
+// ===== 주의 기록 모아보기 =====
+function renderWarningSection(s) {
+  const warns = (db.lessons||[]).filter(l => l.studentId===s.id && (l.warnCheat || l.warnType || l.warnMemo))
+    .sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  if (!warns.length) return '';
+  return `<div class="coach-section" style="background:var(--surface2);border:1px solid var(--border)">
+    <div class="coach-header" onclick="this.classList.toggle('open');this.nextElementSibling.style.display=this.classList.contains('open')?'block':'none'" style="color:var(--text2);font-size:12px">
+      <span class="ch-arrow" style="font-size:10px">▶</span> ⚠️ 주의 기록 모아보기
+      <span class="badge" style="font-size:10px;margin-left:auto;background:var(--accent2-light);color:var(--accent2)">${warns.length}건</span>
+    </div>
+    <div class="coach-body" style="display:none;background:white">
+      ${warns.map(w => `<div style="padding:8px 10px;background:var(--accent2-light);border-left:3px solid var(--accent2);border-radius:6px;margin-bottom:6px">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+          <b style="font-size:12px">${w.date}</b>
+          ${w.warnCheat?`<span class="badge badge-red" style="font-size:10px">치팅</span>`:''}
+          ${w.warnType?`<span class="badge" style="font-size:10px;background:var(--accent2);color:white">${w.warnType}</span>`:''}
+        </div>
+        ${w.warnMemo?`<div style="font-size:11px;color:var(--text2)">${w.warnMemo}</div>`:''}
+      </div>`).join('')}
+    </div>
+  </div>`;
+}
+
 // ===== 수업 일지 =====
 let lessonShowAll = {};
 
@@ -2400,6 +2429,29 @@ function renderLessonSection(s) {
           <input type="hidden" id="hw-memo" value="" />
         </div>
 
+        <!-- 주의 기록 섹션 (기본 접힘) -->
+        <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--border)">
+          <button type="button" class="wrong-collapse-btn" id="ll-warn-toggle-${s.id}" onclick="toggleLessonWarn('${s.id}')" style="font-size:11px;color:var(--text3)">
+            <span class="arrow">▶</span> ⚠️ 주의 기록
+          </button>
+          <div id="ll-warn-wrap-${s.id}" style="display:none;margin-top:8px">
+            <label style="font-size:11px;display:flex;align-items:center;gap:4px;cursor:pointer;margin-bottom:6px">
+              <input type="checkbox" id="ll-warn-cheat-${s.id}" /> 치팅/부정행위 여부
+            </label>
+            <div class="field" style="margin-bottom:6px">
+              <label>유형</label>
+              <div style="display:flex;gap:4px;flex-wrap:wrap">
+                <button type="button" class="type-chip" data-wt="숙제 베끼기" onclick="pickLessonChip(this,'wt','${s.id}')">숙제 베끼기</button>
+                <button type="button" class="type-chip" data-wt="온라인 컨닝" onclick="pickLessonChip(this,'wt','${s.id}')">온라인 컨닝</button>
+                <button type="button" class="type-chip" data-wt="답 보기" onclick="pickLessonChip(this,'wt','${s.id}')">답 보기</button>
+                <button type="button" class="type-chip" data-wt="기타" onclick="pickLessonChip(this,'wt','${s.id}')">기타</button>
+              </div>
+              <input type="hidden" id="ll-wt-${s.id}" value="" />
+            </div>
+            <div class="field" style="margin-bottom:6px"><label>간단 메모</label><input id="ll-warn-memo-${s.id}" placeholder="한 줄로 작성" /></div>
+          </div>
+        </div>
+
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
           <button class="btn" onclick="toggleLessonForm('${s.id}')">취소</button>
           <button class="btn btn-primary" onclick="saveLesson('${s.id}')">저장</button>
@@ -2448,6 +2500,14 @@ function toggleLessonForm(sid) {
   }
 }
 
+function toggleLessonWarn(sid) {
+  const w = document.getElementById('ll-warn-wrap-'+sid);
+  const btn = document.getElementById('ll-warn-toggle-'+sid);
+  const opening = w.style.display==='none';
+  w.style.display = opening?'block':'none';
+  btn.classList.toggle('open', opening);
+}
+
 function pickLessonChip(el, field, sid) {
   const val = el.dataset[field];
   const hidden = document.getElementById(`ll-${field}-${sid}`);
@@ -2492,6 +2552,9 @@ function saveLesson(sid) {
   }
 
   // 수업 일지
+  const warnCheat = document.getElementById('ll-warn-cheat-'+sid)?.checked || false;
+  const warnType = document.getElementById('ll-wt-'+sid)?.value || '';
+  const warnMemo = document.getElementById('ll-warn-memo-'+sid)?.value || '';
   db.lessons.push({
     id: lessonId,
     hwId: (hwStar !== 3 || wrongs.length || readVal) ? hwId : '',
@@ -2504,7 +2567,10 @@ function saveLesson(sid) {
     hard: document.getElementById('ll-hard-'+sid).value,
     memo,
     stars: hwStar,
-    wrongs
+    wrongs,
+    warnCheat,
+    warnType,
+    warnMemo
   });
   saveDB();
   showStudentDetail(sid);
