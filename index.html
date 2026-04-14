@@ -2680,6 +2680,27 @@ function saveLesson(sid) {
     db.lessons.push({ id: lessonId, hwId: linkedHwId, ...lessonData });
   }
   saveDB();
+  // 저장 검증: localStorage에서 다시 읽어서 오답 길이 확인
+  try {
+    const saved = JSON.parse(localStorage.getItem(DB_KEY)||'{}');
+    const latestLesson = editLid ? (saved.lessons||[]).find(l=>l.id===editLid) : (saved.lessons||[])[saved.lessons.length-1];
+    if (latestLesson && latestLesson.hwId) {
+      const savedHw = (saved.homework||[]).find(h=>h.id===latestLesson.hwId);
+      const inputCount = wrongs.length;
+      const savedCount = (savedHw?.wrongs||[]).length;
+      if (inputCount !== savedCount) console.warn('저장 검증 실패: 오답 수 불일치', inputCount, savedCount);
+      // 각 오답의 텍스트 길이 검증
+      (savedHw?.wrongs||[]).forEach((w,i) => {
+        const orig = wrongs[i];
+        if (!orig) return;
+        ['eng','ord','kor'].forEach(t => {
+          const origLen = (orig.details?.[t]?.answer||'').length;
+          const savedLen = (w.details?.[t]?.answer||'').length;
+          if (origLen !== savedLen) console.warn(`오답 #${i+1} ${t} 정답 길이 불일치:`, origLen, savedLen);
+        });
+      });
+    }
+  } catch(e) { console.error('저장 검증 중 오류:', e); }
   showStudentDetail(sid);
 }
 
@@ -3245,6 +3266,13 @@ function updateWrongCount() {
   document.getElementById('hw-wrong-count').textContent = cnt;
 }
 
+// HTML 속성 이스케이프 (따옴표/앰퍼샌드/꺾쇠 처리)
+function escAttr(v) {
+  return String(v==null?'':v)
+    .replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')
+    .replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
 function addWrongItem(data) {
   wrongCounter++;
   const d = data || {};
@@ -3258,11 +3286,18 @@ function addWrongItem(data) {
   const legacyStu = d.studentAns || '';
 
   const initialNum = d.num || '';
+  const engAns = det.eng?.answer || legacyAns || '';
+  const engStu = det.eng?.studentAns || legacyStu || '';
+  const ordAns = det.ord?.answer || '';
+  const ordStu = det.ord?.studentAns || '';
+  const korAns = det.kor?.answer || '';
+  const korStu = det.kor?.studentAns || '';
+
   div.innerHTML = `
     <div class="wrong-header">
-      <span class="wrong-num wq-title" style="font-size:16px;font-weight:700;color:var(--accent2)">${initialNum?initialNum+'번':'번호 미입력'}</span>
+      <span class="wrong-num wq-title" style="font-size:16px;font-weight:700;color:var(--accent2)">${initialNum?escAttr(initialNum)+'번':'번호 미입력'}</span>
       <div style="display:flex;align-items:center;gap:6px">
-        <input class="wq-num" type="text" value="${initialNum}" placeholder="번호" oninput="updateWrongTitle(this)" style="width:60px;text-align:center;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px" />
+        <input class="wq-num" type="text" value="${escAttr(initialNum)}" placeholder="번호" oninput="updateWrongTitle(this)" style="width:60px;text-align:center;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px" />
         <button type="button" class="wrong-del" onclick="this.closest('.wrong-item').remove();updateWrongCount()" title="삭제">×</button>
       </div>
     </div>
@@ -3277,22 +3312,28 @@ function addWrongItem(data) {
     <div class="wq-type-fields">
       <div class="wq-type-block" data-for="eng" style="display:${types.includes('eng')?'block':'none'};margin-top:8px;padding:8px;background:var(--accent2-light);border-radius:6px;border-left:3px solid var(--accent2)">
         <div style="font-size:11px;font-weight:700;color:var(--accent2);margin-bottom:4px">영어 어순 배열</div>
-        <div class="wrong-field"><label>정답</label><input class="wq-ans-eng" placeholder="정답 입력" value="${det.eng?.answer||legacyAns}" /></div>
-        <div class="wrong-field"><label>학생 답안</label><input class="wq-stu-eng" placeholder="학생이 작성한 답안" value="${det.eng?.studentAns||legacyStu}" /></div>
+        <div class="wrong-field"><label>정답</label><input class="wq-ans-eng" placeholder="정답 입력" value="${escAttr(engAns)}" /></div>
+        <div class="wrong-field"><label>학생 답안</label><input class="wq-stu-eng" placeholder="학생이 작성한 답안" value="${escAttr(engStu)}" /></div>
       </div>
       <div class="wq-type-block" data-for="ord" style="display:${types.includes('ord')?'block':'none'};margin-top:8px;padding:8px;background:var(--gold-light);border-radius:6px;border-left:3px solid var(--gold)">
         <div style="font-size:11px;font-weight:700;color:var(--gold);margin-bottom:4px">순서 배열</div>
-        <div class="wrong-field"><label>정답</label><input class="wq-ans-ord" placeholder="정답 입력" value="${det.ord?.answer||''}" /></div>
-        <div class="wrong-field"><label>학생 답안</label><input class="wq-stu-ord" placeholder="학생이 작성한 답안" value="${det.ord?.studentAns||''}" /></div>
+        <div class="wrong-field"><label>정답</label><input class="wq-ans-ord" placeholder="정답 입력" value="${escAttr(ordAns)}" /></div>
+        <div class="wrong-field"><label>학생 답안</label><input class="wq-stu-ord" placeholder="학생이 작성한 답안" value="${escAttr(ordStu)}" /></div>
       </div>
       <div class="wq-type-block" data-for="kor" style="display:${types.includes('kor')?'block':'none'};margin-top:8px;padding:8px;background:#EAF1FB;border-radius:6px;border-left:3px solid #185FA5">
         <div style="font-size:11px;font-weight:700;color:#185FA5;margin-bottom:4px">영작하기</div>
-        <div class="wrong-field"><label>정답</label><input class="wq-ans-kor" placeholder="정답 입력" value="${det.kor?.answer||''}" /></div>
-        <div class="wrong-field"><label>학생 답안</label><input class="wq-stu-kor" placeholder="학생이 작성한 답안" value="${det.kor?.studentAns||''}" /></div>
+        <div class="wrong-field"><label>정답</label><input class="wq-ans-kor" placeholder="정답 입력" value="${escAttr(korAns)}" /></div>
+        <div class="wrong-field"><label>학생 답안</label><input class="wq-stu-kor" placeholder="학생이 작성한 답안" value="${escAttr(korStu)}" /></div>
       </div>
     </div>
   `;
   list.appendChild(div);
+  // 안전장치: 값을 속성 대신 .value 프로퍼티로도 설정 (특수문자 보호)
+  const numInp = div.querySelector('.wq-num'); if (numInp) numInp.value = String(initialNum);
+  const setVal = (sel, v) => { const el = div.querySelector(sel); if (el) el.value = String(v||''); };
+  setVal('.wq-ans-eng', engAns); setVal('.wq-stu-eng', engStu);
+  setVal('.wq-ans-ord', ordAns); setVal('.wq-stu-ord', ordStu);
+  setVal('.wq-ans-kor', korAns); setVal('.wq-stu-kor', korStu);
   updateWrongCount();
   document.getElementById('hw-wrong-wrap').style.display = 'block';
   document.getElementById('hw-wrong-toggle').classList.add('open');
