@@ -887,17 +887,23 @@ body {
   .sidebar { display: none !important; }
   .hamburger { display: block !important; font-size: 24px !important; padding: 8px 10px !important; min-height: 44px !important; min-width: 44px !important; }
 
-  /* 모바일 메뉴 전체 화면 오버레이 */
+  /* 모바일 메뉴 전체 화면 오버레이 (헤더 아래부터) */
   .mobile-menu {
-    position: fixed; top: 56px; left: 0; right: 0; bottom: 0;
-    padding: 16px 18px; overflow-y: auto; z-index: 150;
+    position: fixed;
+    top: calc(56px + env(safe-area-inset-top));
+    left: 0; right: 0; bottom: 0;
+    padding: 16px 18px 16px; overflow-y: auto; z-index: 150;
     animation: slideDown 0.2s ease;
   }
   .mobile-menu .mm-item { padding: 14px 12px; font-size: 15px; min-height: 44px; }
   .mobile-menu .mm-label { font-size: 11px; margin: 14px 0 6px; }
 
-  /* 헤더 — 강력 정리 */
-  .header { padding: 0 8px !important; gap: 3px !important; }
+  /* 헤더 — 강력 정리 (iOS 노치/상태바 안전영역 존중) */
+  .header {
+    padding: env(safe-area-inset-top) 8px 0 !important;
+    gap: 3px !important;
+    height: calc(56px + env(safe-area-inset-top)) !important;
+  }
   .header > div:last-child { gap: 3px !important; flex-shrink: 0; }
   .header > div:first-child { min-width: 0; flex: 1; }
   .header-logo { font-size: 15px !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; max-width: 100% !important; }
