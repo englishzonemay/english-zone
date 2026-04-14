@@ -937,6 +937,18 @@ body {
     <!-- (experiments and briefing pages removed - merged into overview) -->
 
     <!-- AI NOTES -->
+    <!-- VOCAB TEST PAGE -->
+    <div id="page-vocabtest" style="display:none">
+      <div class="page-header">
+        <div>
+          <div class="page-title">단어시험</div>
+          <div class="page-subtitle" id="vocabtest-subtitle"></div>
+        </div>
+        <button class="btn btn-primary" onclick="openVocabTestModal(currentClass)">+ 시험 기록</button>
+      </div>
+      <div id="vocabtest-content"></div>
+    </div>
+
     <div id="page-ainotes" style="display:none">
       <div class="page-header">
         <div>
@@ -1044,12 +1056,26 @@ body {
     <div class="field"><label>학년</label><select id="s-grade"><option>초1</option><option>초2</option><option>초3</option><option>초4</option><option>초5</option><option>초6</option><option>중1</option><option>중2</option><option>중3</option></select></div>
   </div>
   <div class="field-row">
-    <div class="field"><label>반</label><select id="s-class"></select></div>
+    <div class="field"><label>반</label><select id="s-class" onchange="onStudentClassChange()"></select></div>
     <div class="field"><label>MBTI</label><select id="s-mbti"><option value="">모름</option><option>ISTJ</option><option>ISFJ</option><option>INFJ</option><option>INTJ</option><option>ISTP</option><option>ISFP</option><option>INFP</option><option>INTP</option><option>ESTP</option><option>ESFP</option><option>ENFP</option><option>ENTP</option><option>ESTJ</option><option>ESFJ</option><option>ENFJ</option><option>ENTJ</option></select></div>
   </div>
-  <div class="field"><label>성향 / 관찰 내용</label><textarea id="s-trait" placeholder="예: 욕심은 있으나 속도 느림, 모르는 부분 넘어가기 어려워함"></textarea></div>
-  <div class="field"><label>주의사항</label><textarea id="s-note" placeholder="예: 너무 다그치면 다음날 결석 가능성, 화보다 친밀감으로 접근"></textarea></div>
-  <div class="field"><label>스몰톡 소재 (라포 형성용)</label><input id="s-talk" placeholder="예: 동생, 축구, 게임"></div>
+  <!-- 단어시험반 전용: 요일/시간 -->
+  <div id="s-vocab-fields" style="display:none">
+    <div class="field">
+      <label>요일 (복수 선택)</label>
+      <div style="display:flex;gap:6px" id="s-day-btns"></div>
+    </div>
+    <div class="field">
+      <label>시간</label>
+      <div class="time-picker-wrap"><span class="time-val" id="s-vocab-time-val">시간 선택</span><div class="time-dropdown" id="s-vocab-time-dd"></div></div>
+    </div>
+  </div>
+  <!-- 일반반 전용 -->
+  <div id="s-normal-fields">
+    <div class="field"><label>성향 / 관찰 내용</label><textarea id="s-trait" placeholder="예: 욕심은 있으나 속도 느림, 모르는 부분 넘어가기 어려워함"></textarea></div>
+    <div class="field"><label>주의사항</label><textarea id="s-note" placeholder="예: 너무 다그치면 다음날 결석 가능성, 화보다 친밀감으로 접근"></textarea></div>
+    <div class="field"><label>스몰톡 소재 (라포 형성용)</label><input id="s-talk" placeholder="예: 동생, 축구, 게임"></div>
+  </div>
   <div class="modal-footer">
     <button class="btn" onclick="closeModal('modal-add-student')">취소</button>
     <button class="btn btn-primary" onclick="saveStudent()">저장</button>
@@ -1415,30 +1441,33 @@ function setMenu(menu, el) {
 
 // ===== PAGE RENDER =====
 function renderPage() {
-  ['overview','students','homework','ainotes'].forEach(p => {
-    document.getElementById('page-'+p).style.display = 'none';
+  ['overview','students','homework','vocabtest','ainotes'].forEach(p => {
+    const pg = document.getElementById('page-'+p);
+    if (pg) pg.style.display = 'none';
   });
-  // 이전 메뉴 호환
   if (currentMenu === 'experiments' || currentMenu === 'briefing') currentMenu = 'overview';
 
   const tabsWrap = document.getElementById('class-tabs-wrap');
   if (currentClass === 'all') {
-    // 전체 현황
     tabsWrap.style.display = 'none';
     currentMenu = 'overview';
     document.getElementById('page-overview').style.display = 'block';
     renderOverview(); renderBriefing();
   } else {
-    // 반 선택 시 — 탭 표시
     const cls = db.classes.find(c=>c.id===currentClass);
     tabsWrap.style.display = 'block';
     renderClassTabs(cls);
-    // vocab 모드는 homework/ainotes 없음 → overview/students로 제한
-    if (cls && cls.vocabMode && (currentMenu === 'homework')) currentMenu = 'students';
-    document.getElementById('page-'+currentMenu).style.display = 'block';
-    if (currentMenu === 'overview') { renderOverview(); renderBriefing(); }
+    const isVocab = cls && cls.vocabMode;
+    // 단어시험반: homework/ainotes 없음
+    if (isVocab && (currentMenu === 'homework' || currentMenu === 'ainotes')) currentMenu = 'overview';
+    // 일반반: vocabtest 없음
+    if (!isVocab && currentMenu === 'vocabtest') currentMenu = 'students';
+    const pg = document.getElementById('page-'+currentMenu);
+    if (pg) pg.style.display = 'block';
+    if (currentMenu === 'overview') { renderOverview(); if (!isVocab) renderBriefing(); }
     else if (currentMenu === 'students') renderStudents();
     else if (currentMenu === 'homework') renderHomework();
+    else if (currentMenu === 'vocabtest') renderVocabTestPage();
     else if (currentMenu === 'ainotes') renderAINotes();
   }
 }
@@ -1450,8 +1479,8 @@ function renderClassTabs(cls) {
   const tabs = isVocab
     ? [
         {k:'overview', icon:'📊', label:'현황'},
-        {k:'students', icon:'📖', label:'단어시험'},
-        {k:'ainotes', icon:'📋', label:'AI 노트'}
+        {k:'students', icon:'👩‍🎓', label:'학생'},
+        {k:'vocabtest', icon:'📖', label:'단어시험'}
       ]
     : [
         {k:'overview', icon:'📊', label:'현황'},
@@ -1469,6 +1498,10 @@ function switchClassTab(tab) {
 
 // ===== OVERVIEW =====
 function renderOverview() {
+  // 단어시험반 전용 현황
+  const cur = db.classes.find(c=>c.id===currentClass);
+  if (cur && cur.vocabMode) { renderVocabOverview(cur); return; }
+
   const students = getFilteredStudents();
   const hw = getFilteredHW();
   const exp = getFilteredExp();
@@ -2284,7 +2317,36 @@ function saveStudentEdit(id) {
 function openAddStudent() {
   const sel = document.getElementById('s-class');
   sel.innerHTML = db.classes.map(c=>`<option value="${c.id}" ${c.id===currentClass?'selected':''}>${c.name}</option>`).join('');
+  // 요일 버튼 초기화
+  const dayBtns = document.getElementById('s-day-btns');
+  dayBtns.innerHTML = ['월','화','수','목','금'].map(d=>`<button type="button" class="day-btn" data-day="${d}" onclick="this.classList.toggle('on')">${d}</button>`).join('');
+  document.getElementById('s-vocab-time-val').textContent = '시간 선택';
+  document.getElementById('s-vocab-time-val').dataset.time = '';
+  initTimePicker('s-vocab-time-dd','s-vocab-time-val','');
+  // 시간 선택 커스텀 핸들러 (preview 없음)
+  document.getElementById('s-vocab-time-val').onclick = (e) => {
+    e.stopPropagation();
+    document.querySelectorAll('.time-dropdown').forEach(d=>d.classList.remove('open'));
+    document.getElementById('s-vocab-time-dd').classList.toggle('open');
+  };
+  document.querySelectorAll('#s-vocab-time-dd .time-btn').forEach(b => {
+    b.onclick = (e) => {
+      e.stopPropagation();
+      document.getElementById('s-vocab-time-val').textContent = b.textContent;
+      document.getElementById('s-vocab-time-val').dataset.time = b.textContent;
+      document.getElementById('s-vocab-time-dd').classList.remove('open');
+    };
+  });
+  onStudentClassChange();
   openModal('modal-add-student');
+}
+
+function onStudentClassChange() {
+  const classId = document.getElementById('s-class').value;
+  const c = db.classes.find(c=>c.id===classId);
+  const isVocab = c && c.vocabMode;
+  document.getElementById('s-vocab-fields').style.display = isVocab?'block':'none';
+  document.getElementById('s-normal-fields').style.display = isVocab?'none':'block';
 }
 function openAddHW() {
   document.getElementById('hw-edit-id').value = '';
@@ -2521,12 +2583,19 @@ function saveClass() {
 function saveStudent() {
   const name = document.getElementById('s-name').value.trim();
   if (!name) return;
+  const classId = document.getElementById('s-class').value;
+  const cls = db.classes.find(c=>c.id===classId);
+  const isVocab = cls && cls.vocabMode;
+  const days = Array.from(document.querySelectorAll('#s-day-btns .day-btn.on')).map(b=>b.dataset.day);
+  const vocabTime = document.getElementById('s-vocab-time-val').dataset.time || '';
   db.students.push({
     id: 'stu_'+Date.now(),
     name,
     grade: document.getElementById('s-grade').value,
-    classId: document.getElementById('s-class').value,
+    classId,
     mbti: document.getElementById('s-mbti').value,
+    days: isVocab ? days : [],
+    vocabTime: isVocab ? vocabTime : '',
     trait: document.getElementById('s-trait').value,
     note: document.getElementById('s-note').value,
     talk: document.getElementById('s-talk').value
@@ -3418,83 +3487,203 @@ function aiSaveBtn(category, student) {
 }
 
 // ===== VOCAB TEST SYSTEM =====
+let vocabSelectedDay = '월';
+let vocabFilterDay = 'all';
+let vocabFilterTime = 'all';
+
+// 단어시험반 현황 탭
+function renderVocabOverview(cls) {
+  const students = db.students.filter(s=>s.classId===cls.id);
+  const tests = (db.vocabTests||[]).filter(t=>t.classId===cls.id);
+
+  // 전체 메트릭
+  document.getElementById('overview-subtitle').textContent = cls.name + '반 · ' + students.length + '명';
+  document.getElementById('overview-checklist').innerHTML = '';
+  document.getElementById('briefing-metrics').innerHTML = '';
+  document.getElementById('briefing-exp-summary').innerHTML = '';
+  document.getElementById('briefing-hw-trend').innerHTML = '';
+  document.getElementById('report-result').innerHTML = '';
+  document.getElementById('briefing-script-result').innerHTML = '';
+  document.getElementById('briefing-prev-list').innerHTML = '';
+
+  const avgScore = tests.length?(tests.reduce((a,t)=>a+scoreOf(t),0)/tests.length).toFixed(0):'—';
+
+  document.getElementById('overview-metrics').innerHTML = `
+    <div class="metric"><div class="metric-val">${students.length}</div><div class="metric-label">담당 학생</div></div>
+    <div class="metric"><div class="metric-val">${tests.length}</div><div class="metric-label">시험 기록</div></div>
+    <div class="metric"><div class="metric-val">${avgScore}</div><div class="metric-label">평균 점수</div></div>
+    <div class="metric"><div class="metric-val">${tests.filter(t=>scoreOf(t)>=90).length}</div><div class="metric-label">90점 이상</div></div>
+  `;
+
+  // 요일 / 시간대 필터
+  const allDays = ['월','화','수','목','금'];
+  const allTimes = [...new Set(students.map(s=>s.vocabTime).filter(Boolean))].sort();
+
+  // 향상/하락 학생
+  const improved = [], declined = [];
+  students.forEach(s => {
+    const stat = getVocabStats(s.name);
+    if (stat.tests.length >= 2) {
+      const lScore = scoreOf(stat.tests[stat.tests.length-1]);
+      const pScore = scoreOf(stat.tests[stat.tests.length-2]);
+      if (lScore > pScore) improved.push({s, diff: lScore-pScore, score: lScore});
+      else if (lScore < pScore) declined.push({s, diff: pScore-lScore, score: lScore});
+    }
+  });
+
+  // 필터 적용된 학생
+  const filtered = students.filter(s => {
+    if (vocabFilterDay !== 'all' && !(s.days||[]).includes(vocabFilterDay)) return false;
+    if (vocabFilterTime !== 'all' && s.vocabTime !== vocabFilterTime) return false;
+    return true;
+  });
+
+  // 평균 추이 그래프 (최근 회차별)
+  const testsByDate = {};
+  tests.forEach(t => {
+    if (!testsByDate[t.date]) testsByDate[t.date] = [];
+    testsByDate[t.date].push(scoreOf(t));
+  });
+  const sortedDates = Object.keys(testsByDate).sort().slice(-8);
+  const avgByDate = sortedDates.map(d => ({date:d, avg: Math.round(testsByDate[d].reduce((a,b)=>a+b,0)/testsByDate[d].length)}));
+
+  let trendChart = '';
+  if (avgByDate.length >= 2) {
+    trendChart = `<div class="card" style="margin-bottom:12px">
+      <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:10px">📊 전체 평균 추이</div>
+      <div style="display:flex;gap:6px;align-items:flex-end;height:70px;margin:8px 0">
+        ${avgByDate.map(d => `<div style="flex:1;text-align:center">
+          <div style="height:55px;display:flex;align-items:flex-end;justify-content:center">
+            <div style="width:18px;background:${d.avg>=90?'var(--accent)':d.avg>=70?'var(--gold)':'var(--accent2)'};border-radius:3px 3px 0 0;height:${d.avg}%;min-height:4px"></div>
+          </div>
+          <div style="font-size:9px;color:var(--text3);margin-top:3px">${d.date.slice(5)}</div>
+          <div style="font-size:11px;font-weight:700">${d.avg}</div>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  // 필터 UI
+  const filterUI = `<div class="card" style="margin-bottom:12px">
+    <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:10px">🔍 필터</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+      <button class="df-btn${vocabFilterDay==='all'?' active':''}" onclick="vocabFilterDay='all';renderPage()">전체 요일</button>
+      ${allDays.map(d=>`<button class="df-btn${vocabFilterDay===d?' active':''}" onclick="vocabFilterDay='${d}';renderPage()">${d}</button>`).join('')}
+    </div>
+    ${allTimes.length?`<div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="df-btn${vocabFilterTime==='all'?' active':''}" onclick="vocabFilterTime='all';renderPage()">전체 시간</button>
+      ${allTimes.map(t=>`<button class="df-btn${vocabFilterTime===t?' active':''}" onclick="vocabFilterTime='${t}';renderPage()">${t}</button>`).join('')}
+    </div>`:''}
+  </div>`;
+
+  // 학생별 카드
+  const studentList = filtered.map(s => {
+    const stat = getVocabStats(s.name);
+    const score = stat.last ? scoreOf(stat.last) : null;
+    const improvInfo = improved.find(i=>i.s.id===s.id);
+    const declineInfo = declined.find(i=>i.s.id===s.id);
+    const statusColor = improvInfo ? 'var(--accent)' : declineInfo ? 'var(--accent2)' : 'var(--border)';
+    const statusBg = improvInfo ? 'var(--accent-light)' : declineInfo ? 'var(--accent2-light)' : 'var(--surface)';
+    const statusLabel = improvInfo ? `↑ +${improvInfo.diff}점 향상` : declineInfo ? `↓ -${declineInfo.diff}점 하락` : '변화없음';
+    return `<div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:${statusBg};border-left:3px solid ${statusColor};border-radius:6px;margin-bottom:6px;cursor:pointer" onclick="showVocabDetail('${s.id}')">
+      <div style="flex:1">
+        <div style="font-weight:600;font-size:13px">${s.name} <span style="font-size:10px;color:var(--text3);font-weight:400">${s.grade||''} ${(s.days||[]).join(',')} ${s.vocabTime||''}</span></div>
+        <div style="font-size:11px;color:var(--text2);margin-top:2px">${statusLabel}</div>
+      </div>
+      ${score!=null?`<div style="font-weight:700;color:${score>=90?'var(--accent)':score>=70?'var(--gold)':'var(--accent2)'}">${score}점</div>`:'<div style="font-size:11px;color:var(--text3)">기록없음</div>'}
+    </div>`;
+  }).join('');
+
+  document.getElementById('overview-classes').innerHTML = `
+    ${trendChart}
+    ${filterUI}
+    <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:10px">학생 현황 (${filtered.length}명)</div>
+    ${filtered.length?studentList:'<p style="font-size:12px;color:var(--text3)">조건에 맞는 학생이 없습니다</p>'}
+  `;
+}
+
+
+// 학생별 점수/추이 정보
+function getVocabStats(studentName) {
+  const tests = (db.vocabTests||[]).filter(t=>t.student===studentName).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  const newT = tests.filter(t=>t.type==='new');
+  const cumT = tests.filter(t=>t.type==='cumul');
+  const lastNew = newT[newT.length-1];
+  const lastCum = cumT[cumT.length-1];
+  const prev = tests.length>=2?tests[tests.length-2]:null;
+  const last = tests[tests.length-1];
+  let trend = '';
+  if (last && prev) {
+    const lScore = scoreOf(last), pScore = scoreOf(prev);
+    if (lScore > pScore) trend='up';
+    else if (lScore < pScore) trend='down';
+    else trend='same';
+  }
+  return { tests, newT, cumT, lastNew, lastCum, last, trend };
+}
+function scoreOf(t) { return t.total ? Math.round((t.total-t.wrong)/t.total*100) : 0; }
+
+// 학생 탭 (요일별+시간대별 그룹핑)
 function renderVocabClass(cls, students) {
   const el = document.getElementById('students-content');
   if (!db.vocabTests) db.vocabTests=[];
   const days = ['월','화','수','목','금'];
-  const groups = cls.groups||[];
+  if (!days.includes(vocabSelectedDay)) vocabSelectedDay = '월';
 
   // 요일 탭
-  const selectedDay = cls._selectedDay || days[0];
+  const dayTabs = days.map(d => {
+    const cnt = students.filter(s=>(s.days||[]).includes(d)).length;
+    return `<button class="class-tab${d===vocabSelectedDay?' active':''}" onclick="vocabSelectedDay='${d}';renderPage()">${d} ${cnt?`<span style="font-size:10px;opacity:0.8">(${cnt})</span>`:''}</button>`;
+  }).join('');
 
-  // 반 전체 통계
-  const allTests = db.vocabTests.filter(t=>students.some(s=>s.name===t.student));
-  const avgScore = allTests.length?(allTests.reduce((a,t)=>a+(t.score||0),0)/allTests.length).toFixed(0):'—';
+  // 해당 요일 학생들 → 시간대별 그룹핑
+  const dayStudents = students.filter(s=>(s.days||[]).includes(vocabSelectedDay));
+  const timeGroups = {};
+  dayStudents.forEach(s => {
+    const t = s.vocabTime || '시간 미정';
+    if (!timeGroups[t]) timeGroups[t] = [];
+    timeGroups[t].push(s);
+  });
 
-  let dayTabs = days.map(d=>`<button class="df-btn ${d===selectedDay?'active':''}" onclick="db.classes.find(c=>c.id==='${cls.id}')._selectedDay='${d}';renderPage()">${d}</button>`).join('');
-
-  // 해당 요일의 그룹들
-  const dayGroups = groups.filter(g=>g.day===selectedDay);
-
-  // 그룹별 학생 카드
-  let groupsHtml = dayGroups.map(g => {
-    const gStudents = students.filter(s=>g.studentIds&&g.studentIds.includes(s.id));
-    const cards = gStudents.map(s => {
-      const tests = db.vocabTests.filter(t=>t.student===s.name);
-      const newVocab = tests.filter(t=>t.type==='new');
-      const cumul = tests.filter(t=>t.type==='cumul');
-      const total = tests.filter(t=>t.type==='total');
-      const lastTest = tests[tests.length-1];
-      const prevTest = tests.length>=2?tests[tests.length-2]:null;
-      let trend = '';
-      if (lastTest && prevTest) {
-        if (lastTest.score>prevTest.score) trend='<span style="color:var(--accent)">↑</span>';
-        else if (lastTest.score<prevTest.score) trend='<span style="color:var(--accent2)">↓</span>';
-        else trend='<span style="color:var(--text3)">→</span>';
-      }
-      const scoreColor = lastTest?(lastTest.score>=90?'var(--accent)':lastTest.score>=70?'var(--gold)':'var(--accent2)'):'var(--text3)';
+  const sortedTimes = Object.keys(timeGroups).sort();
+  let groupsHtml = sortedTimes.map(time => {
+    const gs = timeGroups[time];
+    const cards = gs.map(s => {
+      const stat = getVocabStats(s.name);
+      const score = stat.last ? scoreOf(stat.last) : null;
+      const scoreColor = score==null?'var(--text3)':(score>=90?'var(--accent)':score>=70?'var(--gold)':'var(--accent2)');
+      const trendIcon = stat.trend==='up'?'<span style="color:var(--accent)">↑</span>':stat.trend==='down'?'<span style="color:var(--accent2)">↓</span>':stat.trend==='same'?'<span style="color:var(--text3)">→</span>':'';
       return `<div class="student-card" onclick="showVocabDetail('${s.id}')" style="border-left:3px solid ${scoreColor}">
         <div class="avatar" style="background:${cls.color}20;color:${cls.color}">${s.name.slice(0,2)}</div>
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;gap:6px">
-            <span class="student-name">${s.name}</span>${trend}
+            <span class="student-name">${s.name}</span>
+            <span class="badge badge-gray" style="font-size:10px">${s.grade||''}</span>
+            ${trendIcon}
           </div>
           <div style="font-size:10px;color:var(--text2);margin-top:2px">
-            보카 ${newVocab.length?newVocab.length+'차':'—'} · 누적 ${cumul.length?cumul.length+'차':'—'} · 총정리 ${total.length}회
+            새로운 단어 ${stat.newT.length?stat.newT.length+'차':'—'} · 누적 ${stat.cumT.length?stat.cumT.length+'차':'—'}
           </div>
         </div>
         <div style="text-align:right">
-          ${lastTest?`<div style="font-size:14px;font-weight:700;color:${scoreColor}">${lastTest.score}점</div>`:'<div style="font-size:11px;color:var(--text3)">기록없음</div>'}
+          ${score!=null?`<div style="font-size:14px;font-weight:700;color:${scoreColor}">${score}점</div>`:'<div style="font-size:11px;color:var(--text3)">기록없음</div>'}
         </div>
       </div>`;
     }).join('');
     return `<div style="margin-bottom:16px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <div style="font-size:13px;font-weight:600">${g.time||g.day} 그룹</div>
-        <button class="btn btn-sm" onclick="editVocabGroup('${cls.id}','${g.id}')">그룹 수정</button>
-      </div>
-      <div class="student-cards-grid">${cards||'<p style="font-size:12px;color:var(--text3)">학생 없음</p>'}</div>
+      <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px;text-transform:uppercase">${vocabSelectedDay} ${time} (${gs.length}명)</div>
+      <div class="student-cards-grid">${cards}</div>
     </div>`;
   }).join('');
 
-  // 미배정 학생
-  const assignedIds = groups.flatMap(g=>g.studentIds||[]);
-  const unassigned = students.filter(s=>!assignedIds.includes(s.id));
+  // 요일 미배정 학생
+  const unassigned = students.filter(s=>!s.days||!s.days.length);
 
   el.innerHTML = `
-    <div style="display:flex;gap:4px;margin-bottom:14px">${dayTabs}</div>
-    <div class="card" style="margin-bottom:12px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <span style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase">반 전체 현황</span>
-        <span class="badge badge-gray">평균 ${avgScore}점 · ${allTests.length}건</span>
-      </div>
-    </div>
-    ${groupsHtml}
-    <div style="display:flex;gap:8px;margin-bottom:12px">
-      <button class="btn btn-sm btn-primary" onclick="addVocabGroup('${cls.id}','${selectedDay}')">+ ${selectedDay}요일 그룹 추가</button>
-      <button class="btn btn-sm" onclick="openVocabTestModal('${cls.id}')">+ 단어시험 기록</button>
-    </div>
-    ${unassigned.length?`<div style="margin-top:12px"><div style="font-size:11px;color:var(--text3);margin-bottom:6px">미배정 학생 (${unassigned.length}명)</div>
+    <div class="class-tabs" style="margin-bottom:16px">${dayTabs}</div>
+    ${dayStudents.length?groupsHtml:'<div class="empty"><div class="empty-icon">📅</div><p>이 요일에 등록된 학생이 없습니다</p></div>'}
+    ${unassigned.length?`<div style="margin-top:16px">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:6px;text-transform:uppercase">요일 미배정 (${unassigned.length}명)</div>
       <div class="student-cards-grid">${unassigned.map(s=>`<div class="student-card" onclick="showVocabDetail('${s.id}')">
         <div class="avatar" style="background:${cls.color}20;color:${cls.color}">${s.name.slice(0,2)}</div>
         <div style="flex:1"><span class="student-name">${s.name}</span></div>
@@ -3503,85 +3692,61 @@ function renderVocabClass(cls, students) {
   `;
 }
 
-function addVocabGroup(classId, day) {
-  const c = db.classes.find(c=>c.id===classId);
-  if (!c) return;
-  if (!c.groups) c.groups = [];
-  const time = prompt(`${day}요일 그룹 시간대를 입력하세요 (예: 4시)`);
-  if (!time) return;
-  c.groups.push({ id:'grp_'+Date.now(), day, time: day+' '+time, studentIds:[] });
-  saveDB(); renderPage();
-}
-
-function editVocabGroup(classId, groupId) {
-  const c = db.classes.find(c=>c.id===classId);
-  if (!c) return;
-  const g = (c.groups||[]).find(g=>g.id===groupId);
-  if (!g) return;
+// 단어시험 기록 모달 (단순화: 전체/틀린/차수만)
+function openVocabTestModal(classId, studentName) {
   const students = db.students.filter(s=>s.classId===classId);
-  const body = `<div style="margin-bottom:10px">
-    <div class="field"><label>그룹 시간</label><input id="vg-time" value="${g.time||''}" /></div>
-    <div class="field"><label>학생 선택</label>
-      <div style="display:flex;flex-wrap:wrap;gap:6px">${students.map(s=>`<button type="button" class="student-pick ${(g.studentIds||[]).includes(s.id)?'selected':''}" data-sid="${s.id}" onclick="this.classList.toggle('selected')">${s.name}</button>`).join('')}</div>
-    </div>
-    <div style="display:flex;gap:8px;margin-top:10px">
-      <button class="btn btn-primary" onclick="saveVocabGroup('${classId}','${groupId}')">저장</button>
-      <button class="btn" onclick="deleteVocabGroup('${classId}','${groupId}')" style="color:var(--accent2);border-color:var(--accent2)">삭제</button>
-    </div>
-  </div>`;
-  document.getElementById('detail-name').textContent = '그룹 수정';
-  document.getElementById('modal-detail-body').innerHTML = body;
-  openModal('modal-student-detail');
-}
+  if (!students.length) { alert('먼저 학생을 등록해주세요.'); return; }
+  const preselect = studentName || students[0].name;
+  // 다음 차수 자동 계산
+  const tests = (db.vocabTests||[]).filter(t=>t.student===preselect);
+  const newRound = tests.filter(t=>t.type==='new').length + 1;
+  const cumRound = tests.filter(t=>t.type==='cumul').length + 1;
 
-function saveVocabGroup(classId, groupId) {
-  const c = db.classes.find(c=>c.id===classId);
-  const g = (c.groups||[]).find(g=>g.id===groupId);
-  if (!g) return;
-  g.time = document.getElementById('vg-time').value;
-  g.studentIds = Array.from(document.querySelectorAll('#modal-detail-body .student-pick.selected')).map(b=>b.dataset.sid);
-  saveDB(); closeModal('modal-student-detail'); renderPage();
-}
-
-function deleteVocabGroup(classId, groupId) {
-  if (!confirm('이 그룹을 삭제할까요?')) return;
-  const c = db.classes.find(c=>c.id===classId);
-  c.groups = (c.groups||[]).filter(g=>g.id!==groupId);
-  saveDB(); closeModal('modal-student-detail'); renderPage();
-}
-
-// 단어시험 기록 모달
-function openVocabTestModal(classId) {
-  const students = db.students.filter(s=>s.classId===classId);
   const body = `<div>
     <div class="field-row">
       <div class="field"><label>날짜</label><input type="date" id="vt-date" value="${new Date().toISOString().split('T')[0]}" /></div>
-      <div class="field"><label>학생</label><select id="vt-student">${students.map(s=>`<option>${s.name}</option>`).join('')}</select></div>
+      <div class="field"><label>학생</label><select id="vt-student" onchange="autoFillVocabRound()">${students.map(s=>`<option${s.name===preselect?' selected':''}>${s.name}</option>`).join('')}</select></div>
     </div>
     <div class="field"><label>시험 종류</label>
       <div style="display:flex;gap:6px">
-        <span class="type-chip on-eng" data-vtype="new" onclick="pickVocabType(this)">새로운 보카</span>
+        <span class="type-chip on-eng" data-vtype="new" onclick="pickVocabType(this)">새로운 단어 테스트</span>
         <span class="type-chip" data-vtype="cumul" onclick="pickVocabType(this)">누적 테스트</span>
-        <span class="type-chip" data-vtype="total" onclick="pickVocabType(this)">총정리</span>
       </div>
     </div>
     <div class="field-row">
-      <div class="field"><label>몇 차 시험</label><input type="number" id="vt-round" min="1" value="1" style="width:80px" /></div>
-      <div class="field"><label>점수</label><input type="number" id="vt-score" min="0" max="100" placeholder="예: 85" style="width:80px" /></div>
+      <div class="field"><label>몇 차 시험</label><input type="number" id="vt-round" min="1" value="${newRound}" style="width:80px" /></div>
+      <div class="field"><label>전체 단어 개수</label><input type="number" id="vt-total" min="1" placeholder="예: 50" style="width:100px" /></div>
     </div>
-    <div class="field"><label>틀린 단어 (한 줄에 하나씩: 정답 / 학생오답)</label>
-      <textarea id="vt-wrongs" style="height:100px" placeholder="apple / aple\nbeautiful / buetiful"></textarea>
+    <div class="field"><label>틀린 단어 개수</label>
+      <input type="number" id="vt-wrong" min="0" placeholder="예: 3" style="width:100px" />
+      <div id="vt-score-preview" style="font-size:12px;color:var(--text3);margin-top:4px"></div>
     </div>
-    <div class="field"><label>메모</label><input id="vt-memo" placeholder="특이사항" /></div>
+    <div class="field"><label>메모 (선택)</label><input id="vt-memo" placeholder="특이사항" /></div>
     <div style="display:flex;gap:8px;margin-top:8px">
       <button class="btn btn-primary" onclick="saveVocabTest('${classId}')">저장</button>
       <button class="btn" onclick="closeModal('modal-student-detail')">취소</button>
     </div>
-    <div id="vt-ai-result" style="margin-top:10px"></div>
   </div>`;
   document.getElementById('detail-name').textContent = '단어시험 기록';
   document.getElementById('modal-detail-body').innerHTML = body;
+  vtSelectedType = 'new';
+  // 점수 실시간 프리뷰
+  const upd = () => {
+    const t = parseInt(document.getElementById('vt-total').value)||0;
+    const w = parseInt(document.getElementById('vt-wrong').value)||0;
+    const pv = document.getElementById('vt-score-preview');
+    if (t>0) pv.textContent = `자동 계산 점수: ${Math.round((t-w)/t*100)}점 (맞음 ${t-w} / 전체 ${t})`;
+    else pv.textContent = '';
+  };
+  ['vt-total','vt-wrong'].forEach(id=>document.getElementById(id).oninput=upd);
   openModal('modal-student-detail');
+}
+
+function autoFillVocabRound() {
+  const name = document.getElementById('vt-student').value;
+  const tests = (db.vocabTests||[]).filter(t=>t.student===name);
+  const round = tests.filter(t=>t.type===vtSelectedType).length + 1;
+  document.getElementById('vt-round').value = round;
 }
 
 let vtSelectedType = 'new';
@@ -3590,15 +3755,15 @@ function pickVocabType(el) {
   el.closest('div').querySelectorAll('.type-chip').forEach(c => {
     c.className = 'type-chip' + (c.dataset.vtype===vtSelectedType?' on-eng':'');
   });
+  autoFillVocabRound();
 }
 
 function saveVocabTest(classId) {
   if (!db.vocabTests) db.vocabTests=[];
-  const wrongsRaw = document.getElementById('vt-wrongs').value.trim();
-  const wrongs = wrongsRaw.split('\n').filter(l=>l.trim()).map(l => {
-    const parts = l.split('/').map(s=>s.trim());
-    return { correct: parts[0]||'', wrong: parts[1]||'' };
-  });
+  const total = parseInt(document.getElementById('vt-total').value)||0;
+  const wrong = parseInt(document.getElementById('vt-wrong').value)||0;
+  if (!total) { alert('전체 단어 개수를 입력하세요'); return; }
+  const score = Math.round((total-wrong)/total*100);
   db.vocabTests.push({
     id: 'vt_'+Date.now(),
     classId,
@@ -3606,8 +3771,10 @@ function saveVocabTest(classId) {
     student: document.getElementById('vt-student').value,
     type: vtSelectedType,
     round: parseInt(document.getElementById('vt-round').value)||1,
-    score: parseInt(document.getElementById('vt-score').value)||0,
-    wrongs,
+    total,
+    wrong,
+    score,
+    wrongs: [],
     memo: document.getElementById('vt-memo').value
   });
   saveDB(); closeModal('modal-student-detail'); renderPage();
@@ -3618,35 +3785,34 @@ function showVocabDetail(studentId) {
   const s = db.students.find(s=>s.id===studentId);
   if (!s) return;
   const cls = db.classes.find(c=>c.id===s.classId);
-  const tests = (db.vocabTests||[]).filter(t=>t.student===s.name);
-  const newV = tests.filter(t=>t.type==='new');
-  const cumul = tests.filter(t=>t.type==='cumul');
-  const total = tests.filter(t=>t.type==='total');
+  const stat = getVocabStats(s.name);
+  const tests = stat.tests;
+  const newV = stat.newT, cumul = stat.cumT;
 
-  // 추이
+  // 추이 그래프
   let trendHtml = '';
   if (tests.length >= 2) {
     const recent = tests.slice(-6);
-    const maxS = 100;
-    trendHtml = `<div style="display:flex;gap:4px;align-items:flex-end;height:50px;margin:8px 0">
-      ${recent.map(t=>`<div style="flex:1;text-align:center">
-        <div style="height:40px;display:flex;align-items:flex-end;justify-content:center">
-          <div style="width:14px;background:${t.score>=90?'var(--accent)':t.score>=70?'var(--gold)':'var(--accent2)'};border-radius:3px 3px 0 0;height:${t.score}%;min-height:4px"></div>
-        </div>
-        <div style="font-size:9px;color:var(--text3)">${t.date.slice(5)}</div>
-        <div style="font-size:10px;font-weight:600">${t.score}</div>
-      </div>`).join('')}
+    trendHtml = `<div style="display:flex;gap:4px;align-items:flex-end;height:60px;margin:8px 0">
+      ${recent.map(t=>{
+        const sc = scoreOf(t);
+        return `<div style="flex:1;text-align:center">
+          <div style="height:50px;display:flex;align-items:flex-end;justify-content:center">
+            <div style="width:14px;background:${sc>=90?'var(--accent)':sc>=70?'var(--gold)':'var(--accent2)'};border-radius:3px 3px 0 0;height:${sc}%;min-height:4px" title="${t.type==='new'?'새로운':'누적'} ${t.round}차"></div>
+          </div>
+          <div style="font-size:9px;color:var(--text3);margin-top:2px">${t.date.slice(5)}</div>
+          <div style="font-size:10px;font-weight:600">${sc}</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="display:flex;gap:12px;justify-content:center;font-size:10px;color:var(--text3);margin-top:4px">
+      <span>🟢 90+</span> <span>🟡 70-89</span> <span>🔴 ~69</span>
     </div>`;
   }
 
-  // 반복 오답 단어
-  const allWrongWords = tests.flatMap(t=>(t.wrongs||[]).map(w=>w.correct.toLowerCase()));
-  const wordCounts = {};
-  allWrongWords.forEach(w=>{ if(w) wordCounts[w]=(wordCounts[w]||0)+1; });
-  const repeatedWords = Object.entries(wordCounts).filter(([,c])=>c>=2).sort((a,b)=>b[1]-a[1]);
-
-  // 최근 시험 목록
-  const recentTests = tests.slice(-5).reverse();
+  const recentTests = tests.slice(-8).reverse();
+  const newScore = stat.lastNew ? scoreOf(stat.lastNew) : null;
+  const cumScore = stat.lastCum ? scoreOf(stat.lastCum) : null;
 
   document.getElementById('detail-name').textContent = s.name + ' — 단어시험';
   document.getElementById('modal-detail-body').innerHTML = `
@@ -3654,123 +3820,107 @@ function showVocabDetail(studentId) {
       <div class="avatar" style="width:48px;height:48px;font-size:16px;background:${cls?.color||'var(--accent)'}20;color:${cls?.color||'var(--accent)'}">${s.name.slice(0,2)}</div>
       <div style="flex:1">
         <div style="font-size:15px;font-weight:600">${s.name}</div>
-        <div style="font-size:12px;color:var(--text2)">${s.grade} ${s.mbti?'· '+s.mbti:''}</div>
+        <div style="font-size:12px;color:var(--text2)">${s.grade||''} ${(s.days||[]).length?'· '+(s.days.join(',')) + (s.vocabTime?' '+s.vocabTime:''):''}</div>
       </div>
       <div style="display:flex;gap:4px">
-        <button class="btn btn-sm" onclick="openVocabTestModal('${s.classId}')">+ 시험 기록</button>
+        <button class="btn btn-sm" onclick="openVocabTestModal('${s.classId}','${s.name}')">+ 시험 기록</button>
+        <button class="btn btn-sm" onclick="deleteStudent('${s.id}')" style="color:var(--accent2);border-color:var(--accent2)">삭제</button>
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
-      <div style="text-align:center;padding:8px;background:var(--accent-light);border-radius:6px">
-        <div style="font-size:16px;font-weight:700;color:var(--accent)">${newV.length}차</div>
-        <div style="font-size:10px;color:var(--text2)">새로운 보카</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+      <div style="text-align:center;padding:12px;background:var(--accent-light);border-radius:var(--radius-sm);border:1px solid #c5dac9">
+        <div style="font-size:10px;color:var(--accent);font-weight:600;text-transform:uppercase;margin-bottom:4px">새로운 단어</div>
+        <div style="font-size:22px;font-weight:700;color:${newScore==null?'var(--text3)':newScore>=90?'var(--accent)':newScore>=70?'var(--gold)':'var(--accent2)'}">${newScore!=null?newScore+'점':'—'}</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:2px">현재 ${newV.length}차</div>
       </div>
-      <div style="text-align:center;padding:8px;background:var(--gold-light);border-radius:6px">
-        <div style="font-size:16px;font-weight:700;color:var(--gold)">${cumul.length}차</div>
-        <div style="font-size:10px;color:var(--text2)">누적 테스트</div>
-      </div>
-      <div style="text-align:center;padding:8px;background:#EAF1FB;border-radius:6px">
-        <div style="font-size:16px;font-weight:700;color:#185FA5">${total.length}회</div>
-        <div style="font-size:10px;color:var(--text2)">총정리</div>
+      <div style="text-align:center;padding:12px;background:var(--gold-light);border-radius:var(--radius-sm);border:1px solid #e8d8a0">
+        <div style="font-size:10px;color:var(--gold);font-weight:600;text-transform:uppercase;margin-bottom:4px">누적 테스트</div>
+        <div style="font-size:22px;font-weight:700;color:${cumScore==null?'var(--text3)':cumScore>=90?'var(--accent)':cumScore>=70?'var(--gold)':'var(--accent2)'}">${cumScore!=null?cumScore+'점':'—'}</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:2px">현재 ${cumul.length}차</div>
       </div>
     </div>
-    ${trendHtml?`<div class="coach-section" style="background:var(--surface2);border:1px solid var(--border)">
-      <div class="coach-header open" onclick="this.classList.toggle('open');this.nextElementSibling.style.display=this.classList.contains('open')?'block':'none'" style="color:var(--text)">
-        <span class="ch-arrow">▶</span> 📊 점수 추이
-      </div>
-      <div class="coach-body" style="background:white">${trendHtml}</div>
+    ${trendHtml?`<div class="card" style="margin-bottom:12px">
+      <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:6px">📊 점수 추이 (최근 ${Math.min(tests.length,6)}회)</div>
+      ${trendHtml}
     </div>`:''}
-    ${repeatedWords.length?`<div class="coach-section" style="background:var(--accent2-light);border:1px solid #f0cbb8">
-      <div class="coach-header" onclick="this.classList.toggle('open');this.nextElementSibling.style.display=this.classList.contains('open')?'block':'none'" style="color:var(--accent2)">
-        <span class="ch-arrow">▶</span> ⚠️ 반복 오답 단어 (${repeatedWords.length}개)
-      </div>
-      <div class="coach-body" style="display:none;background:white">
-        ${repeatedWords.map(([w,c])=>`<span style="display:inline-block;padding:3px 10px;margin:2px;border-radius:4px;font-size:12px;background:var(--accent2-light);border:1px solid var(--accent2);color:var(--accent2);font-weight:500">${w} <b>${c}회</b></span>`).join('')}
-      </div>
-    </div>`:''}
-    <div class="coach-section" style="background:var(--surface2);border:1px solid var(--border)">
-      <div class="coach-header open" onclick="this.classList.toggle('open');this.nextElementSibling.style.display=this.classList.contains('open')?'block':'none'" style="color:var(--text)">
-        <span class="ch-arrow">▶</span> 📝 최근 시험 기록
-      </div>
-      <div class="coach-body" style="background:white">
-        ${recentTests.length?recentTests.map(t=>`<div class="trend-row" style="font-size:12px">
+    <div class="card">
+      <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:10px">📝 최근 시험 기록</div>
+      ${recentTests.length?recentTests.map(t=>{
+        const sc = scoreOf(t);
+        return `<div class="trend-row" style="font-size:12px">
           <span style="color:var(--text3)">${t.date}</span>
-          <span class="badge ${t.type==='new'?'badge-green':t.type==='cumul'?'badge-gold':'badge-blue'}" style="font-size:10px">${t.type==='new'?'보카':t.type==='cumul'?'누적':'총정리'} ${t.round}차</span>
-          <span style="font-weight:600;color:${t.score>=90?'var(--accent)':t.score>=70?'var(--gold)':'var(--accent2)'}">${t.score}점</span>
-          <span style="color:var(--text3);font-size:11px">${(t.wrongs||[]).length}개 오답</span>
-        </div>`).join(''):'<p style="font-size:12px;color:var(--text3)">기록 없음</p>'}
-      </div>
+          <span class="badge ${t.type==='new'?'badge-green':'badge-gold'}" style="font-size:10px">${t.type==='new'?'새로운':'누적'} ${t.round}차</span>
+          <span>${t.total}단어 / 틀림 ${t.wrong}</span>
+          <span style="font-weight:700;color:${sc>=90?'var(--accent)':sc>=70?'var(--gold)':'var(--accent2)'}">${sc}점</span>
+        </div>`;
+      }).join(''):'<p style="font-size:12px;color:var(--text3)">기록 없음</p>'}
     </div>
-    <button class="btn btn-sm" onclick="analyzeVocabWrongs('${s.name}')" style="width:100%;margin-top:8px;background:var(--accent2-light);color:var(--accent2);border-color:var(--accent2)">🤖 AI 오답 분석</button>
-    <div id="vocab-ai-result" style="margin-top:8px"></div>
   `;
   openModal('modal-student-detail');
 }
 
-function analyzeVocabWrongs(studentName) {
-  const el = document.getElementById('vocab-ai-result');
-  const tests = (db.vocabTests||[]).filter(t=>t.student===studentName);
-  const allWrongs = tests.flatMap(t=>(t.wrongs||[]).map(w=>({...w,date:t.date,type:t.type})));
-  if (!allWrongs.length) { el.innerHTML='<p style="font-size:12px;color:var(--text3)">오답 데이터가 없습니다</p>'; return; }
+// ===== 단어시험 탭 페이지 렌더링 =====
+function renderVocabTestPage() {
+  const cls = db.classes.find(c=>c.id===currentClass);
+  if (!cls) return;
+  const students = db.students.filter(s=>s.classId===currentClass);
+  const tests = (db.vocabTests||[]).filter(t=>t.classId===currentClass).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  document.getElementById('vocabtest-subtitle').textContent = `${tests.length}건의 시험 기록`;
 
-  // 패턴 분류
-  const spelling=[],pronunciation=[],unlearned=[];
-  allWrongs.forEach(w => {
-    if (!w.correct||!w.wrong) { unlearned.push(w); return; }
-    const c=w.correct.toLowerCase(), wr=w.wrong.toLowerCase();
-    if (wr==='' || wr==='x' || wr==='모름') { unlearned.push(w); return; }
-    let diff=0; for(let i=0;i<Math.min(c.length,wr.length);i++) if(c[i]!==wr[i]) diff++;
-    diff += Math.abs(c.length-wr.length);
-    if (diff<=2) spelling.push(w);
-    else if (c.length>3 && wr.length>3 && (c.slice(0,3)===wr.slice(0,3)||c.slice(-3)===wr.slice(-3))) pronunciation.push(w);
-    else unlearned.push(w);
-  });
-
-  // 반복 오답
-  const wordCounts = {};
-  allWrongs.forEach(w=>{ if(w.correct) wordCounts[w.correct.toLowerCase()]=(wordCounts[w.correct.toLowerCase()]||0)+1; });
-  const repeated = Object.entries(wordCounts).filter(([,c])=>c>=2).sort((a,b)=>b[1]-a[1]);
-
-  // 향상도
-  let improvement = '';
-  if (tests.length>=2) {
-    const first=tests[0].score, last=tests[tests.length-1].score;
-    const diff=last-first;
-    improvement = `<div style="text-align:center;padding:10px;background:${diff>=0?'var(--accent-light)':'var(--accent2-light)'};border-radius:6px;margin-bottom:10px">
-      <div style="font-size:20px;font-weight:700;color:${diff>=0?'var(--accent)':'var(--accent2)'}">${diff>=0?'+':''}${diff}점</div>
-      <div style="font-size:11px;color:var(--text2)">첫 시험 ${first}점 → 최근 ${last}점</div>
+  const el = document.getElementById('vocabtest-content');
+  if (!tests.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">📖</div><p>아직 시험 기록이 없습니다</p>
+      <button class="btn btn-primary" style="margin-top:12px" onclick="openVocabTestModal('${currentClass}')">+ 첫 시험 기록</button>
     </div>`;
+    return;
   }
 
-  const result = `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px">
-    <div style="font-size:14px;font-weight:700;color:var(--accent2);margin-bottom:10px">📊 단어 오답 분석 — ${studentName}</div>
-    ${improvement}
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
-      <div style="text-align:center;padding:8px;background:var(--gold-light);border-radius:6px">
-        <div style="font-size:16px;font-weight:700;color:var(--gold)">${spelling.length}</div>
-        <div style="font-size:10px">철자 오류</div>
-      </div>
-      <div style="text-align:center;padding:8px;background:#EAF1FB;border-radius:6px">
-        <div style="font-size:16px;font-weight:700;color:#185FA5">${pronunciation.length}</div>
-        <div style="font-size:10px">발음 혼동</div>
-      </div>
-      <div style="text-align:center;padding:8px;background:var(--accent2-light);border-radius:6px">
-        <div style="font-size:16px;font-weight:700;color:var(--accent2)">${unlearned.length}</div>
-        <div style="font-size:10px">미암기</div>
-      </div>
-    </div>
-    ${repeated.length?`<div style="margin-bottom:10px"><div style="font-size:12px;font-weight:600;color:var(--accent2);margin-bottom:4px">🔄 반복 오답 (${repeated.length}개)</div>
-      ${repeated.slice(0,8).map(([w,c])=>`<span style="display:inline-block;padding:2px 8px;margin:2px;border-radius:4px;font-size:11px;background:var(--accent2-light);color:var(--accent2);font-weight:600">${w} ×${c}</span>`).join('')}
-    </div>`:''}
-    <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:4px">💡 해결 방법</div>
-    <div style="font-size:12px;line-height:1.7">
-      ${spelling.length?`<div>· <b>철자 오류 (${spelling.length}개):</b> 틀린 단어 3회 받아쓰기 + 올바른 철자 손글씨 연습</div>`:''}
-      ${pronunciation.length?`<div>· <b>발음 혼동 (${pronunciation.length}개):</b> 발음 들으며 따라 쓰기, 비슷한 발음 단어 비교 카드 만들기</div>`:''}
-      ${unlearned.length?`<div>· <b>미암기 (${unlearned.length}개):</b> 하루 5개씩 플래시카드 반복, 수업 시작 구두 퀴즈</div>`:''}
-    </div>
-    ${aiSaveBtn('student', studentName)}
+  // 학생별 최근 상태 요약
+  const byStudent = {};
+  students.forEach(s => {
+    const stat = getVocabStats(s.name);
+    byStudent[s.name] = stat;
+  });
+
+  let summary = `<div class="card" style="margin-bottom:12px">
+    <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:10px">학생별 현재 상태</div>
+    ${students.map(s => {
+      const stat = byStudent[s.name];
+      const newScore = stat.lastNew ? scoreOf(stat.lastNew) : null;
+      const cumScore = stat.lastCum ? scoreOf(stat.lastCum) : null;
+      const trendIcon = stat.trend==='up'?'<span style="color:var(--accent)">↑</span>':stat.trend==='down'?'<span style="color:var(--accent2)">↓</span>':stat.trend==='same'?'<span style="color:var(--text3)">→</span>':'';
+      return `<div class="trend-row" style="font-size:12px;cursor:pointer" onclick="showVocabDetail('${s.id}')">
+        <span style="font-weight:500">${s.name} ${trendIcon}</span>
+        <span style="font-size:11px;color:var(--text3)">새로운 ${stat.newT.length}차 · 누적 ${stat.cumT.length}차</span>
+        <span style="color:${newScore==null?'var(--text3)':newScore>=90?'var(--accent)':newScore>=70?'var(--gold)':'var(--accent2)'};font-weight:600">새로운 ${newScore!=null?newScore+'점':'—'}</span>
+        <span style="color:${cumScore==null?'var(--text3)':cumScore>=90?'var(--accent)':cumScore>=70?'var(--gold)':'var(--accent2)'};font-weight:600">누적 ${cumScore!=null?cumScore+'점':'—'}</span>
+      </div>`;
+    }).join('')}
   </div>`;
-  el.innerHTML = result;
+
+  // 최근 기록 리스트
+  let history = `<div class="card">
+    <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:10px">전체 기록 (최근 ${Math.min(tests.length,30)}건)</div>
+    ${tests.slice(0,30).map(t => {
+      const sc = scoreOf(t);
+      return `<div class="trend-row" style="font-size:12px">
+        <span style="color:var(--text3)">${t.date}</span>
+        <span style="font-weight:500">${t.student}</span>
+        <span class="badge ${t.type==='new'?'badge-green':'badge-gold'}" style="font-size:10px">${t.type==='new'?'새로운':'누적'} ${t.round}차</span>
+        <span style="color:var(--text2)">${t.total}단어 / 틀림 ${t.wrong}</span>
+        <span style="font-weight:700;color:${sc>=90?'var(--accent)':sc>=70?'var(--gold)':'var(--accent2)'}">${sc}점</span>
+        <button class="btn btn-sm" onclick="deleteVocabTest('${t.id}')" style="font-size:10px;padding:3px 8px;color:var(--accent2);border-color:var(--accent2)">삭제</button>
+      </div>`;
+    }).join('')}
+  </div>`;
+
+  el.innerHTML = summary + history;
+}
+
+function deleteVocabTest(id) {
+  if (!confirm('이 시험 기록을 삭제할까요?')) return;
+  db.vocabTests = (db.vocabTests||[]).filter(t=>t.id!==id);
+  saveDB(); renderPage();
 }
 
 // ===== WEEKLY/MONTHLY REPORT =====
