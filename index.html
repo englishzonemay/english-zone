@@ -3521,16 +3521,11 @@ let vocabFilterTime = 'all';
 function renderVocabOverview(cls) {
   const students = db.students.filter(s=>s.classId===cls.id);
   const tests = (db.vocabTests||[]).filter(t=>t.classId===cls.id);
+  const days = ['월','화','수','목','금'];
+  if (!days.includes(vocabSelectedDay)) vocabSelectedDay = '월';
 
-  // 전체 메트릭
   document.getElementById('overview-subtitle').textContent = cls.name + '반 · ' + students.length + '명';
   document.getElementById('overview-checklist').innerHTML = '';
-  document.getElementById('briefing-metrics').innerHTML = '';
-  document.getElementById('briefing-exp-summary').innerHTML = '';
-  document.getElementById('briefing-hw-trend').innerHTML = '';
-  document.getElementById('report-result').innerHTML = '';
-  document.getElementById('briefing-script-result').innerHTML = '';
-  document.getElementById('briefing-prev-list').innerHTML = '';
 
   const avgScore = tests.length?(tests.reduce((a,t)=>a+scoreOf(t),0)/tests.length).toFixed(0):'—';
 
@@ -3541,30 +3536,7 @@ function renderVocabOverview(cls) {
     <div class="metric"><div class="metric-val">${tests.filter(t=>scoreOf(t)>=90).length}</div><div class="metric-label">90점 이상</div></div>
   `;
 
-  // 요일 / 시간대 필터
-  const allDays = ['월','화','수','목','금'];
-  const allTimes = [...new Set(students.map(s=>s.vocabTime).filter(Boolean))].sort();
-
-  // 향상/하락 학생
-  const improved = [], declined = [];
-  students.forEach(s => {
-    const stat = getVocabStats(s.name);
-    if (stat.tests.length >= 2) {
-      const lScore = scoreOf(stat.tests[stat.tests.length-1]);
-      const pScore = scoreOf(stat.tests[stat.tests.length-2]);
-      if (lScore > pScore) improved.push({s, diff: lScore-pScore, score: lScore});
-      else if (lScore < pScore) declined.push({s, diff: pScore-lScore, score: lScore});
-    }
-  });
-
-  // 필터 적용된 학생
-  const filtered = students.filter(s => {
-    if (vocabFilterDay !== 'all' && !(s.days||[]).includes(vocabFilterDay)) return false;
-    if (vocabFilterTime !== 'all' && s.vocabTime !== vocabFilterTime) return false;
-    return true;
-  });
-
-  // 평균 추이 그래프 (최근 회차별)
+  // 평균 추이 그래프
   const testsByDate = {};
   tests.forEach(t => {
     if (!testsByDate[t.date]) testsByDate[t.date] = [];
@@ -3575,7 +3547,7 @@ function renderVocabOverview(cls) {
 
   let trendChart = '';
   if (avgByDate.length >= 2) {
-    trendChart = `<div class="card" style="margin-bottom:12px">
+    trendChart = `<div class="card" style="margin-bottom:16px">
       <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:10px">📊 전체 평균 추이</div>
       <div style="display:flex;gap:6px;align-items:flex-end;height:70px;margin:8px 0">
         ${avgByDate.map(d => `<div style="flex:1;text-align:center">
@@ -3589,42 +3561,80 @@ function renderVocabOverview(cls) {
     </div>`;
   }
 
-  // 필터 UI
-  const filterUI = `<div class="card" style="margin-bottom:12px">
-    <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:10px">🔍 필터</div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
-      <button class="df-btn${vocabFilterDay==='all'?' active':''}" onclick="vocabFilterDay='all';renderPage()">전체 요일</button>
-      ${allDays.map(d=>`<button class="df-btn${vocabFilterDay===d?' active':''}" onclick="vocabFilterDay='${d}';renderPage()">${d}</button>`).join('')}
-    </div>
-    ${allTimes.length?`<div style="display:flex;gap:6px;flex-wrap:wrap">
-      <button class="df-btn${vocabFilterTime==='all'?' active':''}" onclick="vocabFilterTime='all';renderPage()">전체 시간</button>
-      ${allTimes.map(t=>`<button class="df-btn${vocabFilterTime===t?' active':''}" onclick="vocabFilterTime='${t}';renderPage()">${t}</button>`).join('')}
-    </div>`:''}
+  // 요일 탭 (class-tabs 스타일)
+  const dayTabs = `<div class="class-tabs" style="margin-bottom:16px">
+    ${days.map(d=>{
+      const cnt = students.filter(s=>(s.days||[]).includes(d)).length;
+      return `<button class="class-tab${d===vocabSelectedDay?' active':''}" onclick="vocabSelectedDay='${d}';renderPage()">${d}요일${cnt?`<span style="font-size:11px;opacity:0.85;margin-left:4px">${cnt}</span>`:''}</button>`;
+    }).join('')}
   </div>`;
 
-  // 학생별 카드
-  const studentList = filtered.map(s => {
+  // 해당 요일 학생들 → 시간대별 그룹핑
+  const dayStudents = students.filter(s=>(s.days||[]).includes(vocabSelectedDay));
+  const timeGroups = {};
+  dayStudents.forEach(s => {
+    const t = s.vocabTime || '시간 미정';
+    if (!timeGroups[t]) timeGroups[t] = [];
+    timeGroups[t].push(s);
+  });
+  const sortedTimes = Object.keys(timeGroups).sort((a,b) => {
+    const pa = parseInt(a)||99, pb = parseInt(b)||99;
+    return pa-pb;
+  });
+
+  const buildCard = (s) => {
     const stat = getVocabStats(s.name);
     const score = stat.last ? scoreOf(stat.last) : null;
-    const improvInfo = improved.find(i=>i.s.id===s.id);
-    const declineInfo = declined.find(i=>i.s.id===s.id);
-    const statusColor = improvInfo ? 'var(--accent)' : declineInfo ? 'var(--accent2)' : 'var(--border)';
-    const statusBg = improvInfo ? 'var(--accent-light)' : declineInfo ? 'var(--accent2-light)' : 'var(--surface)';
-    const statusLabel = improvInfo ? `↑ +${improvInfo.diff}점 향상` : declineInfo ? `↓ -${declineInfo.diff}점 하락` : '변화없음';
-    return `<div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:${statusBg};border-left:3px solid ${statusColor};border-radius:6px;margin-bottom:6px;cursor:pointer" onclick="showVocabDetail('${s.id}')">
-      <div style="flex:1">
-        <div style="font-weight:600;font-size:13px">${s.name} <span style="font-size:10px;color:var(--text3);font-weight:400">${s.grade||''} ${(s.days||[]).join(',')} ${s.vocabTime||''}</span></div>
-        <div style="font-size:11px;color:var(--text2);margin-top:2px">${statusLabel}</div>
+    const scoreColor = score==null?'var(--text3)':(score>=90?'var(--accent)':score>=70?'var(--gold)':'var(--accent2)');
+    // 향상/하락 계산
+    let trend = '', trendColor = '', trendBg = '';
+    if (stat.tests.length >= 2) {
+      const lScore = scoreOf(stat.tests[stat.tests.length-1]);
+      const pScore = scoreOf(stat.tests[stat.tests.length-2]);
+      if (lScore > pScore) { trend = `↑ +${lScore-pScore}점 향상`; trendColor = 'var(--accent)'; trendBg = 'var(--accent-light)'; }
+      else if (lScore < pScore) { trend = `↓ -${pScore-lScore}점 하락`; trendColor = 'var(--accent2)'; trendBg = 'var(--accent2-light)'; }
+      else { trend = '→ 유지'; trendColor = 'var(--text3)'; trendBg = 'var(--surface2)'; }
+    }
+    return `<div class="student-card" onclick="showVocabDetail('${s.id}')" style="border-left:3px solid ${trendColor||'var(--border)'}">
+      <div class="avatar" style="background:${cls.color}20;color:${cls.color}">${s.name.slice(0,2)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span class="student-name">${s.name}</span>
+          <span class="badge badge-gray" style="font-size:10px">${s.grade||''}</span>
+        </div>
+        <div style="font-size:11px;color:var(--text2);margin-top:3px">
+          새로운 단어 <b>${stat.newT.length}차</b> · 누적 <b>${stat.cumT.length}차</b>
+        </div>
+        ${trend?`<div style="font-size:10px;margin-top:3px;padding:2px 8px;background:${trendBg};color:${trendColor};border-radius:10px;display:inline-block">${trend}</div>`:''}
       </div>
-      ${score!=null?`<div style="font-weight:700;color:${score>=90?'var(--accent)':score>=70?'var(--gold)':'var(--accent2)'}">${score}점</div>`:'<div style="font-size:11px;color:var(--text3)">기록없음</div>'}
+      <div style="text-align:right;flex-shrink:0">
+        ${score!=null?`<div style="font-size:15px;font-weight:700;color:${scoreColor}">${score}점</div>`:'<div style="font-size:11px;color:var(--text3)">기록없음</div>'}
+      </div>
+    </div>`;
+  };
+
+  const groupsHtml = sortedTimes.map(time => {
+    const gs = timeGroups[time];
+    return `<div style="margin-bottom:20px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--border)">
+        <span style="font-size:13px;font-weight:700;color:var(--accent)">🕐 ${time}</span>
+        <span class="badge badge-gray" style="font-size:10px">${gs.length}명</span>
+      </div>
+      <div class="student-cards-grid">${gs.map(buildCard).join('')}</div>
     </div>`;
   }).join('');
 
+  // 미배정
+  const unassigned = students.filter(s=>!s.days||!s.days.length);
+
   document.getElementById('overview-classes').innerHTML = `
     ${trendChart}
-    ${filterUI}
-    <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:10px">학생 현황 (${filtered.length}명)</div>
-    ${filtered.length?studentList:'<p style="font-size:12px;color:var(--text3)">조건에 맞는 학생이 없습니다</p>'}
+    ${dayTabs}
+    ${dayStudents.length?groupsHtml:'<div class="empty"><div class="empty-icon">📅</div><p>이 요일에 등록된 학생이 없습니다</p></div>'}
+    ${unassigned.length?`<div style="margin-top:16px">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:8px;text-transform:uppercase">요일 미배정 (${unassigned.length}명)</div>
+      <div class="student-cards-grid">${unassigned.map(buildCard).join('')}</div>
+    </div>`:''}
   `;
 }
 
@@ -3841,6 +3851,9 @@ function showVocabDetail(studentId) {
   const cumScore = stat.lastCum ? scoreOf(stat.lastCum) : null;
 
   document.getElementById('detail-name').textContent = s.name + ' — 단어시험';
+  const days = ['월','화','수','목','금'];
+  const timeOptions = [];
+  for (let h=1;h<=10;h++) { timeOptions.push(h+'시'); timeOptions.push(h+'시 30분'); }
   document.getElementById('modal-detail-body').innerHTML = `
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
       <div class="avatar" style="width:48px;height:48px;font-size:16px;background:${cls?.color||'var(--accent)'}20;color:${cls?.color||'var(--accent)'}">${s.name.slice(0,2)}</div>
@@ -3849,8 +3862,28 @@ function showVocabDetail(studentId) {
         <div style="font-size:12px;color:var(--text2)">${s.grade||''} ${(s.days||[]).length?'· '+(s.days.join(',')) + (s.vocabTime?' '+s.vocabTime:''):''}</div>
       </div>
       <div style="display:flex;gap:4px">
+        <button class="btn btn-sm" onclick="toggleVocabScheduleEdit('${s.id}')">일정 수정</button>
         <button class="btn btn-sm" onclick="openVocabTestModal('${s.classId}','${s.name}')">+ 시험 기록</button>
         <button class="btn btn-sm" onclick="deleteStudent('${s.id}')" style="color:var(--accent2);border-color:var(--accent2)">삭제</button>
+      </div>
+    </div>
+    <div id="vocab-schedule-edit-${s.id}" style="display:none;background:var(--surface2);border-radius:var(--radius-sm);padding:14px;margin-bottom:14px">
+      <div class="field">
+        <label>요일 (복수 선택)</label>
+        <div style="display:flex;gap:6px" id="vse-days-${s.id}">
+          ${days.map(d=>`<button type="button" class="day-btn${(s.days||[]).includes(d)?' on':''}" data-day="${d}" onclick="this.classList.toggle('on')">${d}</button>`).join('')}
+        </div>
+      </div>
+      <div class="field">
+        <label>시간</label>
+        <select id="vse-time-${s.id}" style="max-width:200px">
+          <option value="">시간 미정</option>
+          ${timeOptions.map(t=>`<option${t===s.vocabTime?' selected':''}>${t}</option>`).join('')}
+        </select>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn" onclick="toggleVocabScheduleEdit('${s.id}')">취소</button>
+        <button class="btn btn-primary" onclick="saveVocabSchedule('${s.id}')">저장</button>
       </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
@@ -3883,6 +3916,21 @@ function showVocabDetail(studentId) {
     </div>
   `;
   openModal('modal-student-detail');
+}
+
+function toggleVocabScheduleEdit(sid) {
+  const f = document.getElementById('vocab-schedule-edit-'+sid);
+  f.style.display = f.style.display==='none'?'block':'none';
+}
+
+function saveVocabSchedule(sid) {
+  const s = db.students.find(s=>s.id===sid);
+  if (!s) return;
+  s.days = Array.from(document.querySelectorAll('#vse-days-'+sid+' .day-btn.on')).map(b=>b.dataset.day);
+  s.vocabTime = document.getElementById('vse-time-'+sid).value;
+  saveDB();
+  closeModal('modal-student-detail');
+  renderPage();
 }
 
 // ===== 단어시험 탭 페이지 렌더링 =====
