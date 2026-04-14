@@ -3713,10 +3713,59 @@ function showErrTagPopup(el, msg, color) {
   }, 100);
 }
 
-function detectErrorPatterns(diffs) {
+function detectErrorPatterns(diffs, qType) {
+  // qType: 'eng' (영어 어순 배열) | 'ord' (순서 배열) | 'kor' (영작하기) | undefined
   const patterns = [];
   // 구두점 제거 헬퍼 (온라인 시험에서는 채점 안 됨)
   const stripPunct = s => (s||'').replace(/[.?!,;:"'\u2018\u2019\u201C\u201D]/g,'').trim();
+  const isOrderType = (qType === 'eng' || qType === 'ord');
+
+  // === 어순 배열 유형: 전체 정답/학생답안 텍스트로 비교 ===
+  if (isOrderType && diffs.length) {
+    // 모든 청크를 합쳐서 단어 집합 비교
+    const allCorrect = diffs.map(d=>stripPunct(d.correct||'')).filter(Boolean).join(' ');
+    const allWrong = diffs.map(d=>stripPunct(d.wrong||'')).filter(Boolean).join(' ');
+    const cWords = allCorrect.toLowerCase().split(/\s+/).filter(Boolean);
+    const wWords = allWrong.toLowerCase().split(/\s+/).filter(Boolean);
+    const cMulti = [...cWords].sort().join(' ');
+    const wMulti = [...wWords].sort().join(' ');
+    // 단어 구성이 같고 순서만 다르면 → 어순 오류로만 분류
+    if (cMulti === wMulti && allCorrect.toLowerCase() !== allWrong.toLowerCase()) {
+      patterns.push({
+        cat: '어순 오류',
+        detail: `"${allWrong}" → "${allCorrect}"`,
+        word: allCorrect,
+        why: `학생 순서 "${allWrong}" → 정답 순서 "${allCorrect}" — 단어 구성은 같으나 배열 순서 잘못`
+      });
+      return patterns;
+    }
+    // 단어 구성이 다른 경우에도 청크 단위로만 비교 (순서 차이만)
+    diffs.forEach(d => {
+      const cRaw = stripPunct(d.correct||''), wRaw = stripPunct(d.wrong||'');
+      if (!cRaw || !wRaw || cRaw.toLowerCase() === wRaw.toLowerCase()) return;
+      const cw = cRaw.toLowerCase().split(/\s+/).filter(Boolean);
+      const ww = wRaw.toLowerCase().split(/\s+/).filter(Boolean);
+      if ([...cw].sort().join(' ') === [...ww].sort().join(' ')) {
+        patterns.push({
+          cat: '어순 오류',
+          detail: `"${wRaw}" → "${cRaw}"`,
+          word: cRaw,
+          why: `청크 위치/순서 잘못 — 정답 순서로 재배열 필요`
+        });
+      } else {
+        // 청크 자체가 다름 (단어가 다른 청크) — 어순으로만 표시
+        patterns.push({
+          cat: '어순 오류',
+          detail: `"${wRaw}" → "${cRaw}"`,
+          word: cRaw,
+          why: `청크 배열 잘못 — 정답: "${cRaw}"`
+        });
+      }
+    });
+    return patterns;
+  }
+
+  // === 영작하기 유형 (또는 unknown): 문법 분석 풀세트 ===
   diffs.forEach(d => {
     const cRaw = d.correct, wRaw = d.wrong;
     const c = stripPunct(cRaw), w = stripPunct(wRaw);
@@ -3869,7 +3918,7 @@ function buildCurrentAnalysis(wrongs, name) {
     (pw.types||[]).forEach(t => {
       if (det[t]) {
         const d = analyzeChunkDiff(det[t].answer, det[t].studentAns);
-        detectErrorPatterns(d).forEach(p => {
+        detectErrorPatterns(d, t).forEach(p => {
           pastPatternCatCounts[p.cat] = (pastPatternCatCounts[p.cat]||0)+1;
         });
       }
@@ -3901,7 +3950,7 @@ function buildCurrentAnalysis(wrongs, name) {
       const d = det[t];
       if (!d) return '';
       const diffs = analyzeChunkDiff(d.answer, d.studentAns);
-      const patterns = detectErrorPatterns(diffs);
+      const patterns = detectErrorPatterns(diffs, t);
       allDiffs.push(...diffs);
       allPatterns.push(...patterns);
       itemPatterns.push(...patterns);
@@ -4121,7 +4170,7 @@ function buildCumulativeAnalysis(allWrongs, pastHW, currentWrongs, name) {
       allWrongs.forEach(w => {
         const det = w.details||{};
         (w.types||[]).forEach(t => {
-          if (det[t]) { cumPatterns.push(...detectErrorPatterns(analyzeChunkDiff(det[t].answer, det[t].studentAns))); }
+          if (det[t]) { cumPatterns.push(...detectErrorPatterns(analyzeChunkDiff(det[t].answer, det[t].studentAns), t)); }
         });
       });
       const pc = {}; cumPatterns.forEach(p=>{ const k = p.cat||p; pc[k]=(pc[k]||0)+1; });
