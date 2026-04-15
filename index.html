@@ -1165,6 +1165,10 @@ body {
           <button class="btn" style="flex:1;border-color:var(--accent);color:var(--accent)" onclick="generateBriefingScript()">✨ 브리핑 스크립트 자동 생성</button>
           <button class="btn btn-sm" onclick="loadPreviousBriefings()" style="flex-shrink:0">이전 브리핑 불러오기</button>
         </div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn" style="flex:1;border-color:#185FA5;color:#185FA5" onclick="generateMonthlyCoachingReport()">🧪 이번 달 코칭 실험 결과 요약</button>
+        </div>
+        <div id="coaching-report-result" style="margin-top:12px"></div>
         <div id="briefing-script-result" style="margin-top:12px"></div>
         <div id="briefing-prev-list" style="margin-top:12px"></div>
       </div>
@@ -1229,6 +1233,18 @@ body {
         <button class="btn btn-primary" onclick="openVocabTestModal(currentClass)">+ 시험 기록</button>
       </div>
       <div id="vocabtest-content"></div>
+    </div>
+
+    <!-- COACHING (관찰/실험) -->
+    <div id="page-coaching" style="display:none">
+      <div class="page-header">
+        <div>
+          <div class="page-title">🧪 코칭 현황</div>
+          <div class="page-subtitle" id="coaching-subtitle">학생별 먹히는 것 / 안 먹히는 것 / 최근 실험</div>
+        </div>
+        <button class="btn btn-primary" onclick="openAddExp()">+ 자세히 입력</button>
+      </div>
+      <div id="coaching-content"></div>
     </div>
 
     <div id="page-ainotes" style="display:none">
@@ -1807,7 +1823,7 @@ function isVocabClass(cls) {
 
 // ===== PAGE RENDER =====
 function renderPage() {
-  ['overview','students','homework','vocabtest','ainotes'].forEach(p => {
+  ['overview','students','homework','vocabtest','ainotes','coaching'].forEach(p => {
     const pg = document.getElementById('page-'+p);
     if (pg) pg.style.display = 'none';
   });
@@ -1825,7 +1841,7 @@ function renderPage() {
     renderClassTabs(cls);
     const isVocab = isVocabClass(cls);
     // 단어시험반: homework/ainotes 없음
-    if (isVocab && (currentMenu === 'homework' || currentMenu === 'ainotes')) currentMenu = 'overview';
+    if (isVocab && (currentMenu === 'homework' || currentMenu === 'ainotes' || currentMenu === 'coaching')) currentMenu = 'overview';
     // 일반반: vocabtest 없음
     if (!isVocab && currentMenu === 'vocabtest') currentMenu = 'students';
     const pg = document.getElementById('page-'+currentMenu);
@@ -1835,6 +1851,7 @@ function renderPage() {
     else if (currentMenu === 'homework') renderHomework();
     else if (currentMenu === 'vocabtest') renderVocabTestPage();
     else if (currentMenu === 'ainotes') renderAINotes();
+    else if (currentMenu === 'coaching') renderCoaching();
   }
 }
 
@@ -1852,6 +1869,7 @@ function renderClassTabs(cls) {
         {k:'overview', icon:'📊', label:'현황'},
         {k:'students', icon:'👩‍🎓', label:'학생'},
         {k:'homework', icon:'📝', label:'숙제검사'},
+        {k:'coaching', icon:'🧪', label:'코칭 현황'},
         {k:'ainotes', icon:'📋', label:'AI 노트'}
       ];
   wrap.innerHTML = `<div class="class-tabs">${tabs.map(t=>`<button class="class-tab${t.k===currentMenu?' active':''}" onclick="switchClassTab('${t.k}')">${t.icon} ${t.label}</button>`).join('')}</div>`;
@@ -2264,6 +2282,80 @@ function renderStudents() {
   document.getElementById('students-content').innerHTML = html;
 }
 
+// ===== COACHING (코칭 현황) =====
+function renderCoaching() {
+  const students = getFilteredStudents();
+  const cls = db.classes.find(c=>c.id===currentClass);
+  const sub = document.getElementById('coaching-subtitle');
+  const allClassExp = students.flatMap(s=>db.experiments.filter(e=>e.student===s.name));
+  if (sub) sub.textContent = (cls?cls.name+'반 · ':'') + `${students.length}명 · 총 ${allClassExp.length}건 실험 기록`;
+  const wrap = document.getElementById('coaching-content');
+  if (!students.length) {
+    wrap.innerHTML = '<div class="empty"><div class="empty-icon">🧪</div><p>학생을 먼저 추가해주세요</p></div>';
+    return;
+  }
+  const colors = ['#2D5A3D','#C4562A','#185FA5','#7B3FA0','#B8860B','#6B6560'];
+  let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px">';
+  students.forEach((s,i)=>{
+    const color = db.classes.find(c=>c.id===s.classId)?.color || colors[i%6];
+    const exps = db.experiments.filter(e=>e.student===s.name && e.recordType!=='observe')
+      .sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    const goodE = exps.filter(e=>e.effect==='good');
+    const badE = exps.filter(e=>e.effect==='bad');
+    const neuE = exps.filter(e=>e.effect==='neutral');
+    const rate = exps.length ? Math.round(goodE.length/exps.length*100) : 0;
+    const mkLine = (e,sym,col) => `<li style="font-size:12px;margin-bottom:4px;color:var(--text)">
+      <span style="color:${col};font-weight:700">${sym}</span>
+      ${escAttr(e.method||'')}
+      ${e.result?`<span style="color:var(--text3);font-size:11px"> → ${escAttr(e.result)}</span>`:''}
+      <span style="color:var(--text3);font-size:10px"> · ${e.date||''}</span>
+    </li>`;
+    const goodList = goodE.slice(0,5).map(e=>mkLine(e,'✅','var(--accent)')).join('') || '<li style="font-size:11px;color:var(--text3);list-style:none">아직 없음</li>';
+    const badList = badE.slice(0,5).map(e=>mkLine(e,'❌','var(--accent2)')).join('') || '<li style="font-size:11px;color:var(--text3);list-style:none">아직 없음</li>';
+    const recent = exps.slice(0,3).map(e=>{
+      const sym = e.effect==='good'?'✅':e.effect==='bad'?'❌':'⚠️';
+      return `<div style="font-size:11px;padding:6px 8px;background:var(--surface2);border-radius:4px;margin-bottom:4px">
+        <span style="color:var(--text3)">${e.date||''}</span> ${sym}
+        ${escAttr((e.method||'').slice(0,40))}${(e.method||'').length>40?'…':''}
+        ${e.next?`<div style="font-size:10px;color:#185FA5;margin-top:2px">다음: ${escAttr(e.next.slice(0,50))}${e.next.length>50?'…':''}</div>`:''}
+      </div>`;
+    }).join('') || '<p style="font-size:11px;color:var(--text3);margin:0">최근 실험 없음</p>';
+
+    html += `<div class="card" style="padding:14px;border-left:4px solid ${color}">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;cursor:pointer" onclick="showStudentDetail('${s.id}')">
+        <div class="avatar" style="width:38px;height:38px;font-size:13px;background:${color}20;color:${color}">${s.name.slice(0,2)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:600">${s.name} <span style="font-size:11px;color:var(--text3);font-weight:400">${s.grade||''} ${s.mbti?'· '+s.mbti:''}</span></div>
+          <div style="font-size:11px;color:var(--text2)">
+            <span style="color:var(--accent)">✅${goodE.length}</span> ·
+            <span style="color:var(--gold)">⚠️${neuE.length}</span> ·
+            <span style="color:var(--accent2)">❌${badE.length}</span>
+            ${exps.length?` · 성공률 ${rate}%`:' · 기록 없음'}
+          </div>
+        </div>
+        <button class="btn btn-sm" onclick="event.stopPropagation();showStudentDetail('${s.id}')" style="font-size:11px;padding:3px 8px">+ 기록</button>
+      </div>
+
+      <div style="background:var(--accent-light);border-radius:6px;padding:8px 10px;margin-bottom:8px">
+        <div style="font-size:11px;font-weight:600;color:var(--accent);margin-bottom:4px">✅ 먹히는 것 (${goodE.length})</div>
+        <ul style="margin:0;padding-left:16px">${goodList}</ul>
+      </div>
+
+      <div style="background:var(--accent2-light);border-radius:6px;padding:8px 10px;margin-bottom:8px">
+        <div style="font-size:11px;font-weight:600;color:var(--accent2);margin-bottom:4px">❌ 안 먹히는 것 (${badE.length})</div>
+        <ul style="margin:0;padding-left:16px">${badList}</ul>
+      </div>
+
+      <div style="margin-top:8px">
+        <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">🕒 최근 실험</div>
+        ${recent}
+      </div>
+    </div>`;
+  });
+  html += '</div>';
+  wrap.innerHTML = html;
+}
+
 function getAvgHW(name) {
   const rows = db.homework.filter(h=>h.student===name);
   if (!rows.length) return 0;
@@ -2293,18 +2385,77 @@ function showStudentDetail(id) {
   const weakest = tc.eng>=tc.ord&&tc.eng>=tc.kor?'영어어순':tc.ord>=tc.kor?'순서':'영작';
   const avgStars = allHW.length ? (allHW.reduce((a,h)=>a+h.stars,0)/allHW.length) : 0;
 
-  // === 코칭 전략 카드 ===
-  let strategyTable = '';
-  if (goodExp.length || badExp.length) {
-    const goodRows = goodExp.slice(-3).map(e=>`<tr><td style="color:var(--accent)">✓</td><td>${e.method}</td><td style="font-size:11px;color:var(--text2)">${e.result}</td></tr>`).join('');
-    const badRows = badExp.slice(-3).map(e=>`<tr><td style="color:var(--accent2)">✗</td><td>${e.method}</td><td style="font-size:11px;color:var(--text2)">${e.result}</td></tr>`).join('');
-    strategyTable = `<table class="coach-table">
-      <thead><tr><th></th><th>방법</th><th>결과</th></tr></thead>
-      <tbody>${goodRows}${badRows}</tbody>
-    </table>`;
-  } else {
-    strategyTable = '<p style="font-size:12px;color:var(--text3)">관찰 & 실험이 쌓이면 자동으로 정리됩니다.</p>';
-  }
+  // === 코칭 실험 기록 카드 ===
+  const expExps = allExp.filter(e=>e.recordType!=='observe').sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const neutralExp = expExps.filter(e=>e.effect==='neutral');
+  const effectLabel = (ef)=> ef==='good'?'<span style="color:var(--accent);font-weight:700">✅ 먹힘</span>':ef==='bad'?'<span style="color:var(--accent2);font-weight:700">❌ 안먹힘</span>':'<span style="color:var(--gold);font-weight:700">⚠️ 보통</span>';
+  const renderExpRow = (e)=>{
+    if (coachEditId === e.id) {
+      return `<div style="background:#FFF9E6;border:1px solid #ffd666;border-radius:6px;padding:10px;margin-bottom:8px">
+        <div style="display:grid;grid-template-columns:140px 1fr;gap:6px;margin-bottom:6px">
+          <input type="date" id="coach-edit-date" value="${e.date||''}" style="font-size:12px">
+          <div style="display:flex;gap:4px" id="coach-edit-effect-wrap" data-val="${e.effect||'good'}">
+            <button type="button" class="btn btn-sm coach-ef-btn" data-ef="good" onclick="pickCoachEditEffect('good')" style="flex:1;font-size:11px">✅ 먹힘</button>
+            <button type="button" class="btn btn-sm coach-ef-btn" data-ef="neutral" onclick="pickCoachEditEffect('neutral')" style="flex:1;font-size:11px">⚠️ 보통</button>
+            <button type="button" class="btn btn-sm coach-ef-btn" data-ef="bad" onclick="pickCoachEditEffect('bad')" style="flex:1;font-size:11px">❌ 안먹힘</button>
+          </div>
+        </div>
+        <textarea id="coach-edit-method" style="width:100%;font-size:12px;margin-bottom:4px;min-height:40px" placeholder="시도한 방법">${escAttr(e.method||'')}</textarea>
+        <textarea id="coach-edit-result" style="width:100%;font-size:12px;margin-bottom:4px;min-height:40px" placeholder="결과/반응">${escAttr(e.result||'')}</textarea>
+        <input id="coach-edit-next" value="${escAttr(e.next||'')}" placeholder="다음에 할 것" style="width:100%;font-size:12px;margin-bottom:8px">
+        <div style="display:flex;gap:6px;justify-content:flex-end">
+          <button class="btn btn-sm" onclick="cancelCoachEdit('${s.id}')" style="font-size:11px">취소</button>
+          <button class="btn btn-primary btn-sm" onclick="saveCoachEdit('${e.id}','${s.id}')" style="font-size:11px">저장</button>
+        </div>
+      </div>`;
+    }
+    return `<div style="background:white;border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <span style="font-size:11px;color:var(--text3)">${e.date||''}</span>
+        ${effectLabel(e.effect)}
+        <div style="margin-left:auto;display:flex;gap:4px">
+          <button class="btn btn-sm" onclick="startCoachEdit('${e.id}','${s.id}')" style="padding:2px 6px;font-size:11px">수정</button>
+          <button class="btn btn-sm" onclick="deleteStrategyExp('${e.id}','${s.id}')" style="color:var(--accent2);border-color:var(--accent2);padding:2px 6px;font-size:11px">삭제</button>
+        </div>
+      </div>
+      ${e.method?`<div style="font-size:12px;margin-bottom:2px"><b style="color:var(--text3);font-weight:500">방법</b> · ${escAttr(e.method)}</div>`:''}
+      ${e.result?`<div style="font-size:12px;margin-bottom:2px"><b style="color:var(--text3);font-weight:500">결과</b> · ${escAttr(e.result)}</div>`:''}
+      ${e.next?`<div style="font-size:12px;color:#185FA5"><b style="color:var(--text3);font-weight:500">다음</b> · ${escAttr(e.next)}</div>`:''}
+    </div>`;
+  };
+  const strategyList = expExps.length ? expExps.map(renderExpRow).join('') : '<p style="font-size:12px;color:var(--text3);margin:0 0 8px">아직 기록이 없습니다. 아래에 코칭 실험을 기록해보세요.</p>';
+  const todayIso = new Date().toISOString().split('T')[0];
+  const strategyQuickAdd = `
+    <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:12px;margin-top:10px;border:1px dashed #b8d4f0">
+      <div style="font-size:12px;font-weight:600;color:#185FA5;margin-bottom:8px">➕ 새 코칭 실험 기록</div>
+      <div class="field" style="margin-bottom:6px"><label style="font-size:11px">날짜</label><input type="date" id="coach-new-date-${s.id}" value="${todayIso}" style="font-size:12px"></div>
+      <div class="field" style="margin-bottom:6px"><label style="font-size:11px">시도한 방법</label><textarea id="coach-new-method-${s.id}" style="font-size:12px;min-height:44px" placeholder="예: 수업 전 축구 이야기로 스몰톡, 구두 어순 영작하기 같이 확인"></textarea></div>
+      <div class="field" style="margin-bottom:6px"><label style="font-size:11px">결과 / 반응</label><textarea id="coach-new-result-${s.id}" style="font-size:12px;min-height:44px" placeholder="예: 아이가 웃으며 반응, 그날 숙제 별점 4점으로 올라옴"></textarea></div>
+      <div class="field" style="margin-bottom:6px">
+        <label style="font-size:11px">효과</label>
+        <div style="display:flex;gap:4px" id="coach-new-effect-wrap-${s.id}" data-val="good">
+          <button type="button" class="btn btn-sm coach-ef-new-btn" data-ef="good" onclick="pickCoachNewEffect('${s.id}','good')" style="flex:1;font-size:12px;background:var(--accent-light);border-color:var(--accent);color:var(--accent);font-weight:600">✅ 먹힘</button>
+          <button type="button" class="btn btn-sm coach-ef-new-btn" data-ef="neutral" onclick="pickCoachNewEffect('${s.id}','neutral')" style="flex:1;font-size:12px">⚠️ 보통</button>
+          <button type="button" class="btn btn-sm coach-ef-new-btn" data-ef="bad" onclick="pickCoachNewEffect('${s.id}','bad')" style="flex:1;font-size:12px">❌ 안먹힘</button>
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:8px"><label style="font-size:11px">다음에 할 것</label><input id="coach-new-next-${s.id}" placeholder="예: 다음 시간 동생 이야기 이어가기, 칭찬 구체적으로 해보기" style="font-size:12px"></div>
+      <button class="btn btn-primary btn-sm" onclick="saveStrategyFromDetail('${s.id}')" style="width:100%;font-size:12px">저장</button>
+    </div>`;
+  const strategyStats = expExps.length ? `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px">
+    <div style="text-align:center;padding:8px;background:var(--accent-light);border-radius:6px">
+      <div style="font-size:16px;font-weight:700;color:var(--accent)">${goodExp.length}</div>
+      <div style="font-size:10px;color:var(--text2)">✅ 먹힘</div>
+    </div>
+    <div style="text-align:center;padding:8px;background:var(--gold-light);border-radius:6px">
+      <div style="font-size:16px;font-weight:700;color:var(--gold)">${neutralExp.length}</div>
+      <div style="font-size:10px;color:var(--text2)">⚠️ 보통</div>
+    </div>
+    <div style="text-align:center;padding:8px;background:var(--accent2-light);border-radius:6px">
+      <div style="font-size:16px;font-weight:700;color:var(--accent2)">${badExp.length}</div>
+      <div style="font-size:10px;color:var(--text2)">❌ 안먹힘</div>
+    </div>
+  </div>` : '';
 
   document.getElementById('modal-detail-body').innerHTML = `
     <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px">
@@ -2361,15 +2512,13 @@ function showStudentDetail(id) {
 
     <!-- 코칭 전략 카드 -->
     <div class="coach-section" style="background:#EAF1FB;border:1px solid #b8d4f0">
-      <div class="coach-header" onclick="this.classList.toggle('open');this.nextElementSibling.style.display=this.classList.contains('open')?'block':'none'" style="color:#185FA5">
-        <span class="ch-arrow">▶</span> 📋 코칭 전략 (먹히는 것 / 안 먹히는 것)
+      <div class="coach-header open" onclick="this.classList.toggle('open');this.nextElementSibling.style.display=this.classList.contains('open')?'block':'none'" style="color:#185FA5">
+        <span class="ch-arrow" style="transform:rotate(90deg)">▶</span> 📋 코칭 전략 (먹히는 것 / 안 먹히는 것)
       </div>
-      <div class="coach-body" style="display:none;background:white">
-        ${strategyTable}
-        ${goodExp.length||badExp.length?`<div style="margin-top:8px;font-size:11px;color:var(--text2)">
-          총 ${allExp.length}회 실험 · <span style="color:var(--accent)">효과 ${goodExp.length}</span> · <span style="color:var(--accent2)">비효과 ${badExp.length}</span>
-          ${allExp.length?` · 성공률 ${Math.round(goodExp.length/allExp.length*100)}%`:''}
-        </div>`:''}
+      <div class="coach-body" style="display:block;background:white">
+        ${strategyStats}
+        ${strategyList}
+        ${strategyQuickAdd}
       </div>
     </div>
 
@@ -2736,6 +2885,72 @@ async function generateBriefingScript() {
 
   script += aiSaveBtn('briefing','');
   el.innerHTML = script;
+}
+
+async function generateMonthlyCoachingReport() {
+  const students = getFilteredStudents();
+  const now = new Date();
+  const thisMonth = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  const names = students.map(s=>s.name);
+  const monthExp = db.experiments.filter(e=>
+    names.includes(e.student) && e.recordType!=='observe' && e.date && e.date.startsWith(thisMonth)
+  );
+  const el = document.getElementById('coaching-report-result');
+  if (!monthExp.length) {
+    el.innerHTML = '<div class="ai-result" style="font-size:12px;color:var(--text3)">이번 달 코칭 실험 기록이 없습니다.</div>';
+    return;
+  }
+  const good = monthExp.filter(e=>e.effect==='good');
+  const bad = monthExp.filter(e=>e.effect==='bad');
+  const neu = monthExp.filter(e=>e.effect==='neutral');
+
+  el.innerHTML = '<div class="loading"><div class="spinner"></div> 이번 달 코칭 실험 결과 요약 중...</div>';
+
+  const byStudent = {};
+  monthExp.forEach(e=>{ (byStudent[e.student]=byStudent[e.student]||[]).push(e); });
+  const studentBlocks = Object.entries(byStudent).map(([n,list])=>{
+    return `[${n}]\n` + list.map(e=>{
+      const tag = e.effect==='good'?'✅먹힘':e.effect==='bad'?'❌안먹힘':'⚠️보통';
+      return `- (${e.date}) ${tag} 방법: ${e.method||''} / 결과: ${e.result||''}${e.next?' / 다음: '+e.next:''}`;
+    }).join('\n');
+  }).join('\n\n');
+
+  const prompt = `당신은 영어 학원 LT 강사의 코칭 코치입니다. 아래는 ${thisMonth}월 학생별 코칭 실험 기록입니다.
+이 데이터를 분석해 자연스러운 한국어 보고서를 작성해주세요. 다음 구성으로 써주세요:
+
+1. **이번 달 한 줄 요약** — 전체 ${monthExp.length}건 (먹힘 ${good.length}, 보통 ${neu.length}, 안먹힘 ${bad.length}) 기준 총평
+2. **먹히는 공통 패턴 Top 3** — 여러 학생에게 효과 있었던 공통 방법/원리
+3. **안 먹혔던 공통 패턴** — 조심해야 할 접근
+4. **학생별 하이라이트** — 주목할만한 진전/변화 (2~3명만)
+5. **다음 달 실험 아이디어** — 기록의 "다음에 할 것"을 종합한 실행안 3가지
+
+[실험 기록]
+${studentBlocks}`;
+
+  const aiText = await callAI(prompt, 1800);
+  if (aiText) {
+    el.innerHTML = `<div class="ai-result" style="white-space:pre-wrap;font-size:13px;line-height:1.8"><b style="color:#185FA5">🧪 ${thisMonth} 코칭 실험 결과</b><br><br>${aiText}${aiSaveBtn('briefing','')}</div>`;
+    return;
+  }
+
+  // 로컬 폴백
+  let out = `<div class="ai-result" style="font-size:13px;line-height:1.8">`;
+  out += `<b style="color:#185FA5">🧪 ${thisMonth} 코칭 실험 결과</b><br><br>`;
+  out += `<b>■ 요약</b><br>이번 달 총 ${monthExp.length}건 실험 · <span style="color:var(--accent)">먹힘 ${good.length}</span> · <span style="color:var(--gold)">보통 ${neu.length}</span> · <span style="color:var(--accent2)">안먹힘 ${bad.length}</span>${monthExp.length?` · 성공률 ${Math.round(good.length/monthExp.length*100)}%`:''}<br><br>`;
+  out += `<b style="color:var(--accent)">■ 먹힌 방법</b><br>`;
+  out += good.slice(0,5).map(e=>`· ${e.student}: ${e.method} → ${e.result||''}`).join('<br>') || '없음';
+  out += '<br><br>';
+  out += `<b style="color:var(--accent2)">■ 안 먹힌 방법</b><br>`;
+  out += bad.slice(0,5).map(e=>`· ${e.student}: ${e.method}`).join('<br>') || '없음';
+  out += '<br><br>';
+  const nexts = monthExp.filter(e=>e.next).slice(-5);
+  if (nexts.length) {
+    out += `<b style="color:#185FA5">■ 다음 달 실행안</b><br>`;
+    out += nexts.map(e=>`· ${e.student}: ${e.next}`).join('<br>');
+  }
+  out += aiSaveBtn('briefing','');
+  out += '</div>';
+  el.innerHTML = out;
 }
 
 // ===== HELPERS =====
@@ -3803,6 +4018,130 @@ function saveExp() {
   closeModal('modal-add-exp');
   ['exp-method','exp-result','exp-next','exp-observe-text'].forEach(id=>{ const e=document.getElementById(id); if(e) e.value=''; });
   document.getElementById('exp-ai-suggest').innerHTML = '';
+}
+
+let coachEditId = null;
+let coachNewEffect = {};
+
+function pickCoachNewEffect(sid, ef) {
+  coachNewEffect[sid] = ef;
+  const wrap = document.getElementById('coach-new-effect-wrap-'+sid);
+  if (!wrap) return;
+  wrap.dataset.val = ef;
+  wrap.querySelectorAll('.coach-ef-new-btn').forEach(b=>{
+    const v = b.dataset.ef;
+    if (v === ef) {
+      const color = v==='good'?'accent':v==='bad'?'accent2':'gold';
+      b.style.background = `var(--${color}-light)`;
+      b.style.borderColor = `var(--${color})`;
+      b.style.color = `var(--${color})`;
+      b.style.fontWeight = '600';
+    } else {
+      b.style.background = '';
+      b.style.borderColor = '';
+      b.style.color = '';
+      b.style.fontWeight = '';
+    }
+  });
+}
+
+function pickCoachEditEffect(ef) {
+  const wrap = document.getElementById('coach-edit-effect-wrap');
+  if (!wrap) return;
+  wrap.dataset.val = ef;
+  wrap.querySelectorAll('.coach-ef-btn').forEach(b=>{
+    const v = b.dataset.ef;
+    if (v === ef) {
+      const color = v==='good'?'accent':v==='bad'?'accent2':'gold';
+      b.style.background = `var(--${color}-light)`;
+      b.style.borderColor = `var(--${color})`;
+      b.style.color = `var(--${color})`;
+      b.style.fontWeight = '600';
+    } else {
+      b.style.background = '';
+      b.style.borderColor = '';
+      b.style.color = '';
+      b.style.fontWeight = '';
+    }
+  });
+}
+
+function startCoachEdit(expId, sid) {
+  coachEditId = expId;
+  showStudentDetail(sid);
+  setTimeout(()=>{
+    const e = db.experiments.find(x=>x.id===expId);
+    if (e) pickCoachEditEffect(e.effect||'good');
+  }, 10);
+}
+
+function cancelCoachEdit(sid) {
+  coachEditId = null;
+  showStudentDetail(sid);
+}
+
+function saveCoachEdit(expId, sid) {
+  const e = db.experiments.find(x=>x.id===expId);
+  if (!e) return;
+  const effect = document.getElementById('coach-edit-effect-wrap').dataset.val || 'good';
+  const method = document.getElementById('coach-edit-method').value.trim();
+  const result = document.getElementById('coach-edit-result').value.trim();
+  const next = document.getElementById('coach-edit-next').value.trim();
+  const date = document.getElementById('coach-edit-date').value;
+  if (!method) { alert('시도한 방법을 입력해주세요.'); return; }
+  e.date = date || e.date;
+  e.method = method;
+  e.result = result;
+  e.next = next;
+  e.effect = effect;
+  e.recordType = 'experiment';
+  saveDB();
+  coachEditId = null;
+  showStudentDetail(sid);
+}
+
+function saveStrategyFromDetail(sid) {
+  const s = db.students.find(x=>x.id===sid);
+  if (!s) return;
+  const date = document.getElementById('coach-new-date-'+sid).value;
+  const effect = (document.getElementById('coach-new-effect-wrap-'+sid)?.dataset.val) || coachNewEffect[sid] || 'good';
+  const method = document.getElementById('coach-new-method-'+sid).value.trim();
+  const result = document.getElementById('coach-new-result-'+sid).value.trim();
+  const next = document.getElementById('coach-new-next-'+sid).value.trim();
+  if (!method) { alert('시도한 방법을 입력해주세요.'); return; }
+  db.experiments.push({
+    id: 'exp_'+Date.now(),
+    date: date || new Date().toISOString().split('T')[0],
+    student: s.name,
+    recordType: 'experiment',
+    method, result, effect, next
+  });
+  saveDB();
+  delete coachNewEffect[sid];
+  showStudentDetail(sid);
+}
+
+function deleteStrategyExp(expId, sid) {
+  if (!confirm('이 코칭 실험 기록을 삭제하시겠습니까?')) return;
+  db.experiments = db.experiments.filter(e=>e.id!==expId);
+  saveDB();
+  showStudentDetail(sid);
+}
+
+function openAddExpForStudent(name, sid) {
+  openAddExp();
+  switchExpTab('experiment');
+  const classSel = document.getElementById('exp-class-sel');
+  const stu = db.students.find(s=>s.id===sid);
+  if (stu && classSel) {
+    classSel.value = stu.classId;
+    renderExpStudentList();
+  }
+  document.getElementById('exp-student-sel').value = name;
+  setTimeout(()=>{
+    const btn = document.querySelector(`#exp-student-list .student-pick[data-name="${name}"]`);
+    if (btn) { document.querySelectorAll('#exp-student-list .student-pick').forEach(b=>b.classList.remove('selected')); btn.classList.add('selected'); }
+  }, 50);
 }
 
 function setStar(n) {
