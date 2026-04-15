@@ -968,10 +968,8 @@ body {
     display: inline-flex !important; align-items: center !important; justify-content: center !important;
     border-radius: 10px !important; flex-shrink: 0 !important;
   }
-  /* 상담일지 버튼 텍스트 대신 📋 */
-  .header-counsel-btn::before { content: '📋'; font-size: 19px; }
-  /* 나머지 이모지 버튼은 자체 이모지(💾/📂/⚙️)가 표시되도록 font-size 복원 */
-  .hdr-icon-btn:not(.header-counsel-btn) { font-size: 19px !important; }
+  /* 헤더 아이콘 버튼: 자체 이모지(💾/📂/⚙️) 표시 */
+  .hdr-icon-btn { font-size: 19px !important; }
 
   /* 클래스 탭 — 가로 스크롤 유지, 줄바꿈 금지 */
   .class-tabs {
@@ -1100,7 +1098,6 @@ body {
       <div id="search-results" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:var(--shadow-md);min-width:260px;max-height:240px;overflow-y:auto;z-index:200"></div>
     </div>
     <span id="header-class-name" style="font-size:12px;opacity:0.7"></span>
-    <button class="btn btn-sm header-counsel-btn hdr-icon-btn" style="background:rgba(255,255,255,0.15);border-color:rgba(255,255,255,0.3);color:white" onclick="openModal('modal-counseling')">📋 상담일지</button>
     <button class="btn btn-sm hdr-icon-btn" title="백업 다운로드" aria-label="백업" style="background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.2);color:white;font-size:11px" onclick="downloadBackup()">💾</button>
     <button class="btn btn-sm hdr-icon-btn" title="백업 복원" aria-label="복원" style="background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.2);color:white;font-size:11px" onclick="document.getElementById('restore-file-input').click()">📂</button>
     <input type="file" id="restore-file-input" accept="application/json,.json" style="display:none" onchange="restoreBackup(this)" />
@@ -1113,7 +1110,6 @@ body {
   <div class="mm-label">반 선택</div>
   <div id="mobile-class-list"></div>
   <div class="mm-label" style="margin-top:18px">도구</div>
-  <div class="mm-item" onclick="openModal('modal-counseling');toggleMobileMenu()">📋 상담일지</div>
   <div class="mm-item" onclick="downloadBackup();toggleMobileMenu()">💾 백업 다운로드</div>
   <div class="mm-item" onclick="document.getElementById('restore-file-input').click();toggleMobileMenu()">📂 백업 복원</div>
   <div class="mm-item" onclick="openModal('modal-api-key');toggleMobileMenu()">⚙️ API 설정</div>
@@ -1495,21 +1491,6 @@ body {
     <button class="btn" onclick="closeModal('modal-api-key')">닫기</button>
     <button class="btn btn-primary" onclick="saveApiKey()">저장</button>
   </div>
-</div>
-</div>
-
-<!-- 상담일지 분석 -->
-<div class="modal-overlay" id="modal-counseling">
-<div class="modal" style="max-width:600px">
-  <div class="modal-header">
-    <div class="modal-title">📋 상담일지 분석</div>
-    <button class="modal-close" onclick="closeModal('modal-counseling')">×</button>
-  </div>
-  <p style="font-size:13px;color:var(--text2);margin-bottom:14px">상담 기록을 붙여넣으면 학생 성향, 주의사항, 코칭 포인트를 정리해드려요.</p>
-  <div class="field"><label>학생 이름 (선택)</label><input id="counsel-name" placeholder="예: 빅토"></div>
-  <div class="field"><label>상담 내용 붙여넣기</label><textarea id="counsel-text" style="height:160px" placeholder="상담 일지 내용을 여기에 복사해서 붙여넣으세요..."></textarea></div>
-  <button class="btn btn-primary" style="width:100%" onclick="analyzeCounseling()">✨ AI 분석하기</button>
-  <div id="counsel-result"></div>
 </div>
 </div>
 
@@ -2755,60 +2736,6 @@ async function generateBriefingScript() {
 
   script += aiSaveBtn('briefing','');
   el.innerHTML = script;
-}
-
-// ===== COUNSELING ANALYSIS =====
-async function analyzeCounseling() {
-  const name = document.getElementById('counsel-name').value.trim();
-  const text = document.getElementById('counsel-text').value.trim();
-  if (!text) return;
-
-  const el = document.getElementById('counsel-result');
-  el.innerHTML = '<div class="loading" style="margin-top:12px"><div class="spinner"></div> 분석 중...</div>';
-
-  const system = `너는 영어 학원 강사의 학생 상담 분석 도우미야.
-강사가 입력한 상담 내용을 읽고, 다음 수업에 바로 활용할 수 있도록 구체적이고 실용적인 분석을 해줘.
-절대 "감지되지 않았습니다", "파악할 수 없습니다", "정보가 부족합니다" 같은 회피성 문장은 쓰지 마.
-입력된 내용이 짧더라도, 그 안의 단서(단어, 태도, 맥락)를 최대한 추론해서 구체적으로 분석해.
-모호한 일반론("열심히 하도록 격려하세요" 같은) 대신, 이 아이에게만 해당되는 구체적 조언을 써.
-
-반드시 아래 순서와 형식 그대로 마크다운으로 출력해:
-
-**🧠 이 아이 한 줄 요약**
-(성격 + 학습 스타일을 한 문장으로)
-
-**📌 주요 특징**
-- 성격/태도: (수업 참여 방식, 관계 형성 등)
-- 학습 패턴: (이해 속도, 기억력, 실수 유형 등)
-- 주의할 점: (강사가 놓치기 쉬운 부분)
-
-**✅ 다음 수업 전 체크포인트**
-- 구체적으로 확인해야 할 것 2~3가지
-
-**💡 이 아이에게 효과적인 수업 방식**
-- 어떻게 설명하면 잘 이해하는지
-- 어떤 방식으로 칭찬/피드백을 주면 좋은지
-
-**⚠️ 강사 주의사항**
-- 이 아이를 가르칠 때 조심해야 할 것`;
-
-  const prompt = `학생명: ${name || '미기재'}
-
-상담 내용:
-${text}`;
-
-  const aiText = await callAI(prompt, 1500, system);
-  if (aiText) {
-    el.innerHTML = `<div class="ai-result" style="margin-top:12px;white-space:pre-wrap;font-size:13px;line-height:1.8">${aiText}${aiSaveBtn('student',name)}</div>`;
-    return;
-  }
-
-  // API 키 없을 때만 안내
-  el.innerHTML = `<div class="ai-result" style="margin-top:12px;font-size:13px;line-height:1.7;color:var(--text2)">
-    <b>⚠️ AI 분석을 사용하려면 API 키가 필요합니다.</b><br>
-    우측 상단 ⚙️ 버튼에서 Anthropic API Key를 입력해주세요.<br><br>
-    <span style="font-size:12px;color:var(--text3)">상담 내용은 저장만 됩니다 (${text.length}자).</span>
-  </div>`;
 }
 
 // ===== HELPERS =====
